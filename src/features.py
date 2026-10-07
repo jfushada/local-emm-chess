@@ -56,6 +56,20 @@ def win_rate(pg: pd.DataFrame) -> pd.Series:
     """Share of games won, per player."""
     return pg.groupby("username")["won"].mean().rename("win_rate")
 
+def draw_rate(pg: pd.DataFrame) -> pd.Series:
+    """Share of games drawn, per player."""
+    return pg.groupby("username")["drew"].mean().rename("draw_rate")
+
+def avg_moves(pg: pd.DataFrame) -> pd.Series:
+    """Average game length in moves (turns are half-moves)."""
+    return (pg.groupby("username")["turns"].mean() / 2).rename("avg_moves")
+
+def time_control_shares(pg: pd.DataFrame) -> pd.DataFrame:
+    """Share of each player's games in each time control (rows sum to 1)."""
+    shares = pd.crosstab(pg["username"], pg["speed"], normalize="index")
+    shares = shares.reindex(columns=config.TIME_CONTROLS, fill_value=0)
+    return shares.add_prefix("share_")
+
 # build and save player table
 def build_player_table() -> pd.DataFrame:
     profiles = load_profiles()
@@ -70,6 +84,9 @@ def build_player_table() -> pd.DataFrame:
     players.index.name = "username"
     players = players.join(pg.groupby("username").size().rename("n_games"))
     players = players.join(win_rate(pg))
+    players = players.join(avg_moves(pg))
+    players = players.join(draw_rate(pg))
+    players = players.join(time_control_shares(pg))
     return players.reset_index()
 
 
