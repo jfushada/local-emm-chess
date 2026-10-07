@@ -3,11 +3,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
-RESULTS_DIR = ROOT / "results"
+RAW_DIR = DATA_DIR / "raw"
+PROCESSED_DIR = DATA_DIR / "processed"
 
-GAMES_FILE = DATA_DIR / "dataset.csv"
-PROFILES_FILE = DATA_DIR / "player_profiles.csv"
-RATING_HISTORY_FILE = DATA_DIR / "player_rating_history.csv"
+GAMES_FILE = RAW_DIR / "dataset.csv"
+PROFILES_FILE = RAW_DIR / "player_profiles.csv"
+RATING_HISTORY_FILE = RAW_DIR / "player_rating_history.csv"
+
+ # one row per core player
+PLAYERS_TABLE = PROCESSED_DIR / "players.csv"  
 
 # Standard time controls we keep (ultraBullet and variants are excluded for now).
 TIME_CONTROLS = ["bullet", "blitz", "rapid", "classical"]
