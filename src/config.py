@@ -22,3 +22,9 @@ MIN_GAMES_MAIN_TC = 50
 
 # Games shorter than this many half-moves are treated as aborted.
 MIN_TURNS = 4
+
+GROWTH_WINDOWS_MONTHS = [1, 3, 6]
+
+# A player's rating at the start of a growth window is only trusted if they had
+# at least this many days with rating changes (in that time control) before it.
+MIN_HISTORY_DAYS_BEFORE_WINDOW = 10
