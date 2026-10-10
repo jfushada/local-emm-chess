@@ -4,3 +4,7 @@ networkx>=3.0
 scipy>=1.10
 pysubgroup>=0.7
 matplotlib>=3.7
+jupyterlab
+gower
+tqdm
+
