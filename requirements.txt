@@ -7,4 +7,4 @@ matplotlib>=3.7
 jupyterlab
 gower
 tqdm
-
+pytest>=8.0
