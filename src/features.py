@@ -3,6 +3,7 @@
 # Run from the repo root:  python -m src.features
 # Output: data/processed/players.csv
 
+import numpy as np
 import pandas as pd
 from src import config
 
@@ -93,6 +94,31 @@ def main_time_control(pg: pd.DataFrame) -> pd.Series:
     return counts.idxmax(axis=1).rename("main_tc")
 
 
+# current rating = rating in the most recent sampled game in the player's main time control
+def current_rating(pg: pd.DataFrame, main_tc: pd.Series) -> pd.Series:
+    pg = pg[pg["speed"] == pg["username"].map(main_tc)].sort_values("created_at")
+    return pg.groupby("username")["rating"].last().rename("rating")
+
+
+# number of different opponents divided by number of games:
+# close to 1 = plays many different people, close to 0 = plays the same few people
+def opponents_per_game(pg: pd.DataFrame) -> pd.Series:
+    by_player = pg.groupby("username")
+    return (by_player["opponent"].nunique() / by_player.size()).rename("opponents_per_game")
+
+
+# how varied a player's openings are: entropy over the opening families played.
+# 0 = always the same opening, higher = spread over more openings.
+# we use the opening family (the part before ":"), e.g. "Sicilian Defense",
+# so small variations of the same opening don't count as different openings
+def opening_diversity(pg: pd.DataFrame) -> pd.Series:
+    family = pg["opening"].str.split(":").str[0].str.strip()
+    counts = pd.crosstab(pg["username"], family)
+    shares = counts.div(counts.sum(axis=1), axis=0)
+    entropy = -(shares * np.log2(shares.where(shares > 0))).sum(axis=1)
+    return entropy.rename("opening_diversity")
+
+
 # targets
 
 # rating growth from the sampled games: rating in the last game minus the first,
@@ -160,6 +186,9 @@ def build_player_table() -> pd.DataFrame:
     players = players.join(time_control_shares(pg))
     players = players.join(profile_attributes(profiles, reference_date))
     players = players.join(main_time_control(pg))
+    players = players.join(current_rating(pg, players["main_tc"]))
+    players = players.join(opponents_per_game(pg))
+    players = players.join(opening_diversity(pg))
 
     # 50-game filter: enough rated games in the main time control (profile totals)
     games_main = players.apply(lambda r: r.get(f"games_{r['main_tc']}", 0), axis=1)
