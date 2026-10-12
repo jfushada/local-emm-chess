@@ -28,3 +28,17 @@ GROWTH_WINDOWS_MONTHS = [1, 3, 6]
 # A player's rating at the start of a growth window is only trusted if they had
 # at least this many days with rating changes (in that time control) before it.
 MIN_HISTORY_DAYS_BEFORE_WINDOW = 10
+
+# Opponents: players who appear in the games but weren't crawled themselves.
+OPPONENT_PROFILES_FILE = RAW_DIR / "opponent_profiles.csv"
+OPPONENT_RATING_HISTORY_FILES = [
+    RAW_DIR / "opponent_rating_history_part1.zip",
+    RAW_DIR / "opponent_rating_history_part2.zip",
+]
+
+# one row per player (core players + opponents), profile/history-based columns only
+PLAYERS_ALL_TABLE = PROCESSED_DIR / "players_all.csv"
+
+# For players_all, the main time control is the one with the most rating changes
+# in this many months before the reference date (opponents have ~1 sampled game).
+MAIN_TC_RECENT_MONTHS = 3

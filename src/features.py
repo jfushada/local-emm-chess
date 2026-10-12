@@ -1,15 +1,17 @@
-# Build the player table: one row per core player, with attributes and targets.
+# Build the player tables, with attributes and targets.
 
 # Run from the repo root:  python -m src.features
-# Output: data/processed/players.csv
+# Output:
+#   data/processed/players.csv      one row per core (crawled) player, all attributes
+#   data/processed/players_all.csv  core players + opponents, profile/history-based columns only
 
 import numpy as np
 import pandas as pd
 from src import config
 
-# load profiles of the crawled players (core players/network nodes)
-def load_profiles() -> pd.DataFrame:
-    profiles = pd.read_csv(config.PROFILES_FILE)
+# load player profiles (default: the crawled core players)
+def load_profiles(path=config.PROFILES_FILE) -> pd.DataFrame:
+    profiles = pd.read_csv(path)
     profiles["username"] = profiles["username"].str.lower()
     return profiles
 
@@ -27,13 +29,15 @@ def load_games() -> pd.DataFrame:
     return games.reset_index(drop=True)
 
 
-# load rating history in standard time controls, one row per (player, time control, date)
-def load_rating_history() -> pd.DataFrame:
-    history = pd.read_csv(config.RATING_HISTORY_FILE)
+# load rating history in standard time controls, one row per (player, time control, date).
+# several files (e.g. the two opponent parts, which can be zipped) are combined into one
+def load_rating_history(paths=(config.RATING_HISTORY_FILE,)) -> pd.DataFrame:
+    history = pd.concat([pd.read_csv(p) for p in paths], ignore_index=True)
     history["username"] = history["username"].str.lower()
     history["mode"] = history["mode"].str.lower()
     history = history[history["mode"].isin(config.TIME_CONTROLS)]
     history["date"] = pd.to_datetime(history[["year", "month", "day"]])
+    history = history.drop_duplicates(subset=["username", "mode", "date"])
     return history[["username", "mode", "date", "rating"]].sort_values("date")
 
 
@@ -204,9 +208,70 @@ def build_player_table() -> pd.DataFrame:
     return players.reset_index()
 
 
+# all players (core + opponents): only profile- and history-based columns,
+# since opponents only have ~1 sampled game each
+
+# main time control from the rating history: the time control with the most days
+# with rating changes in the last config.MAIN_TC_RECENT_MONTHS months.
+# players without recent activity fall back to their lifetime profile totals
+def main_time_control_from_history(history: pd.DataFrame, attrs: pd.DataFrame,
+                                   reference_date: pd.Timestamp) -> pd.Series:
+    start = reference_date - pd.DateOffset(months=config.MAIN_TC_RECENT_MONTHS)
+    recent = history[(history["date"] > start) & (history["date"] <= reference_date)]
+    recent_tc = pd.crosstab(recent["username"], recent["mode"]).idxmax(axis=1)
+
+    lifetime_tc = (attrs[["games_bullet", "games_blitz", "games_rapid"]]
+                   .idxmax(axis=1).str.replace("games_", ""))
+    return recent_tc.reindex(attrs.index).fillna(lifetime_tc).rename("main_tc")
+
+
+# current rating = last rating on or before the reference date, in the main time control
+def rating_from_history(history: pd.DataFrame, main_tc: pd.Series,
+                        reference_date: pd.Timestamp) -> pd.Series:
+    h = history[(history["mode"] == history["username"].map(main_tc))
+                & (history["date"] <= reference_date)]
+    return h.groupby("username")["rating"].last().rename("rating")
+
+
+def build_all_players_table(reference_date: pd.Timestamp) -> pd.DataFrame:
+    core_profiles = load_profiles()
+    opponent_profiles = load_profiles(config.OPPONENT_PROFILES_FILE)
+    # some core players also appear in the opponent profiles: keep the core version
+    profiles = (pd.concat([core_profiles, opponent_profiles], ignore_index=True)
+                .drop_duplicates(subset="username", keep="first"))
+
+    history = load_rating_history(
+        [config.RATING_HISTORY_FILE, *config.OPPONENT_RATING_HISTORY_FILES])
+
+    players = profile_attributes(profiles, reference_date)
+    players.index.name = "username"
+    players.insert(0, "is_core", players.index.isin(core_profiles["username"]))
+    players = players.join(main_time_control_from_history(history, players, reference_date))
+    players = players.join(rating_from_history(history, players["main_tc"], reference_date))
+
+    # 50-game filter: enough rated games in the main time control (profile totals)
+    games_main = players.apply(lambda r: r.get(f"games_{r['main_tc']}", 0), axis=1)
+    players = players[games_main >= config.MIN_GAMES_MAIN_TC]
+
+    # targets: same windows and checks as for the core players
+    for months in config.GROWTH_WINDOWS_MONTHS:
+        growth = growth_from_history(history, players["main_tc"], reference_date, months)
+        players = players.join(growth)
+        players = players.join(top20(players[growth.name]))
+
+    return players.reset_index()
+
+
 if __name__ == "__main__":
-    table = build_player_table()
     config.PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+
+    table = build_player_table()
     table.to_csv(config.PLAYERS_TABLE, index=False)
     print(f"Saved {len(table)} players to {config.PLAYERS_TABLE}")
-    print(table.head())
+
+    # same reference date as the core table: the date of the most recent game
+    reference_date = pd.to_datetime(load_games()["created_at"].max(), unit="ms").normalize()
+    all_table = build_all_players_table(reference_date)
+    all_table.to_csv(config.PLAYERS_ALL_TABLE, index=False)
+    print(f"Saved {len(all_table)} players ({all_table['is_core'].sum()} core) "
+          f"to {config.PLAYERS_ALL_TABLE}")
