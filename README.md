@@ -17,7 +17,8 @@ pip install -r requirements.txt
 All commands from the repo root.
 
 ```bash
-python -m src.features          # build data/processed/players.csv
+python -m src.features          # build players.csv and players_all.csv
+python -m src.edges             # build edges_all.csv and edges_core.csv (run after features)
 python -m src.tabular_mining    # subgroup discovery on the player table
 python -m pytest                # run the tests
 ```
@@ -27,14 +28,15 @@ python -m pytest                # run the tests
 ```
 src/
   config.py            shared paths and settings (filters, growth windows)
-  features.py          builds the player table (attributes + targets)
+  features.py          builds the player tables (attributes + targets)
+  edges.py             builds the edge lists of the player network
   quality_measures.py  quality measures for numerical targets (mean-based, KS)
   tabular_mining.py    subgroup discovery on the player table, no network
 algorithm/
   methods.py           network-based local subgroup discovery (adapted from LSD-ATNG)
 data/
   raw/                 crawled Lichess data
-  processed/           generated files (players.csv)
+  processed/           generated files (players.csv, players_all.csv, edges_*.csv)
 tests/                 tests for quality measures and tabular mining
 results/               figures and tables for the paper
 ```
@@ -105,6 +107,57 @@ mining conditions or for Gower tie-breaking) makes results meaningless.
 
 `n_games` is ~50 for everyone because of how the data was crawled, so it describes our
 data collection, not the player. It's kept in the table as a sanity check only.
+
+## All players: `data/processed/players_all.csv`
+
+Core players **and** their opponents: 5,100 players (150 core + 4,950 opponents).
+Built by `src/features.py`. Used as the node table for the network experiments.
+
+Opponents only appear in ~1 sampled game each (against a core player), so
+game-based attributes would be meaningless for them. This table therefore only has
+columns that are reliable for everyone, from the profiles and the rating history:
+
+| Column                                                                    | Meaning                                                                                                                                           |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `username`                                                                | Lichess username, lowercase                                                                                                                       |
+| `is_core`                                                                 | True for the 150 crawled players, False for opponents                                                                                             |
+| `account_age_days`, `title`, `games_bullet`, `games_blitz`, `games_rapid` | as in `players.csv`                                                                                                                               |
+| `main_tc`                                                                 | time control with the most days with rating changes in the 3 months before the reference date (falls back to lifetime profile totals if inactive) |
+| `rating`                                                                  | last rating on or before the reference date, in the main time control                                                                             |
+| `target_growth_1m/3m/6m` and `_top20`                                     | as in `players.csv` (same windows, same minimum-history check)                                                                                    |
+
+Only players who appear in at least one cleaned game are included, so every node has
+at least one edge. The 50-game filter applies here too.
+
+**Note:** `main_tc` is defined differently than in `players.csv` (rating history vs.
+sampled games), so it can differ for some core players (16 of 150), and so can their
+targets. Within each file, every player is treated the same way
+
+The same columns to exclude apply as for `players.csv` (`rating` for rating growth,
+other `target_*` columns always).
+
+## Network: `data/processed/edges_all.csv`, `edges_core.csv`
+
+One row per pair of players who played each other in the sampled games.
+Built by `src/edges.py`, from the same cleaned games as the player tables.
+
+| Column                 | Meaning                                                  |
+| ---------------------- | -------------------------------------------------------- |
+| `player_a`, `player_b` | the two players, alphabetical, so each pair appears once |
+| `n_games`              | number of games between them                             |
+| `distance`             | 1 / `n_games`: frequent opponents are close              |
+
+| File             | Nodes                                | Edges |
+| ---------------- | ------------------------------------ | ----- |
+| `edges_all.csv`  | players in `players_all.csv` (5,100) | 5,857 |
+| `edges_core.csv` | players in `players.csv` (150)       | 289   |
+
+Things to know about the network:
+
+- **No opponent–opponent edges.** We only downloaded the games of the core players,
+  so every edge contains at least one core player. The network looks like ~150 stars:
+  a core player with their (mostly one-off) opponents around them.
+- **Most pairs played once:** 92% in `edges_all`, 73% in `edges_core`.
 
 ## Data notes
 

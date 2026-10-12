@@ -243,6 +243,12 @@ def build_all_players_table(reference_date: pd.Timestamp) -> pd.DataFrame:
     history = load_rating_history(
         [config.RATING_HISTORY_FILE, *config.OPPONENT_RATING_HISTORY_FILES])
 
+    # only players who appear in at least one cleaned game; otherwise they would
+    # have no edges in the network (e.g. opponents who only played ultraBullet)
+    games = load_games()
+    in_games = set(games["white_player"]) | set(games["black_player"])
+    profiles = profiles[profiles["username"].isin(in_games)]
+
     players = profile_attributes(profiles, reference_date)
     players.index.name = "username"
     players.insert(0, "is_core", players.index.isin(core_profiles["username"]))

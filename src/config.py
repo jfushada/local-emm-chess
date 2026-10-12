@@ -42,3 +42,7 @@ PLAYERS_ALL_TABLE = PROCESSED_DIR / "players_all.csv"
 # For players_all, the main time control is the one with the most rating changes
 # in this many months before the reference date (opponents have ~1 sampled game).
 MAIN_TC_RECENT_MONTHS = 3
+
+# one row per pair of players who played each other (built by src/edges.py)
+EDGES_ALL_TABLE = PROCESSED_DIR / "edges_all.csv"    # nodes = players_all.csv
+EDGES_CORE_TABLE = PROCESSED_DIR / "edges_core.csv"  # nodes = players.csv (core only)
