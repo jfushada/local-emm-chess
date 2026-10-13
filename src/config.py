@@ -1,6 +1,8 @@
 """Shared paths and constants."""
 from pathlib import Path
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
@@ -46,3 +48,25 @@ MAIN_TC_RECENT_MONTHS = 3
 # one row per pair of players who played each other (built by src/edges.py)
 EDGES_ALL_TABLE = PROCESSED_DIR / "edges_all.csv"    # nodes = players_all.csv
 EDGES_CORE_TABLE = PROCESSED_DIR / "edges_core.csv"  # nodes = players.csv (core only)
+
+# One fixed date for account age, growth windows and which games count: the day of
+# the most recent game in the original crawl. Games played after it are ignored.
+REFERENCE_DATE = pd.Timestamp("2026-10-07")
+
+# Snowball step: the games, profiles and rating history of ~200 opponents who were
+# crawled as well, so the network gets opponent-opponent edges.
+SNOWBALL_GAMES_FILE = RAW_DIR / "additional_opponent_games.csv"
+SNOWBALL_PROFILES_FILE = RAW_DIR / "200opponent_profiles.csv"
+SNOWBALL_RATING_HISTORY_FILE = RAW_DIR / "200opponent_rating_history.csv"
+
+# Snowball players are described by their most recent games before the reference
+# date, at most this many (same as the core players), and need at least
+# MIN_SAMPLED_GAMES of them to be included.
+SAMPLED_GAMES_PER_PLAYER = 50
+MIN_SAMPLED_GAMES = 20
+
+# core + snowball players, same columns as players.csv
+PLAYERS_SNOWBALL_TABLE = PROCESSED_DIR / "players_snowball.csv"
+# edges from the original + snowball games
+EDGES_SNOWBALL_TABLE = PROCESSED_DIR / "edges_snowball.csv"            # nodes = players_all.csv
+EDGES_SNOWBALL_CORE_TABLE = PROCESSED_DIR / "edges_snowball_core.csv"  # nodes = players_snowball.csv

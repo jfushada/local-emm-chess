@@ -17,8 +17,8 @@ pip install -r requirements.txt
 All commands from the repo root.
 
 ```bash
-python -m src.features          # build players.csv and players_all.csv
-python -m src.edges             # build edges_all.csv and edges_core.csv (run after features)
+python -m src.features          # build players.csv, players_all.csv and players_snowball.csv
+python -m src.edges             # build edges_*.csv (run after features)
 python -m src.tabular_mining    # subgroup discovery on the player table
 python -m pytest                # run the tests
 ```
@@ -36,7 +36,7 @@ algorithm/
   methods.py           network-based local subgroup discovery (adapted from LSD-ATNG)
 data/
   raw/                 crawled Lichess data
-  processed/           generated files (players.csv, players_all.csv, edges_*.csv)
+  processed/           generated files (players*.csv, edges_*.csv)
 tests/                 tests for quality measures and tabular mining
 results/               figures and tables for the paper
 ```
@@ -48,9 +48,10 @@ One row per crawled ("core") player, 150 in total. Built by `src/features.py`.
 - **Sampled games** = the ~50 most recent rated games per player that we downloaded
   (bullet, blitz, rapid, classical; no variants, no simuls, no games under 4 half-moves).
 - **Main time control** = the time control with the most sampled games.
-- **Reference date** = the date of the most recent game in the data (Oct 7, 2026).
-  Account age and all growth windows are measured up to this date, so results don't
-  depend on when the script is run.
+- **Reference date** = Oct 7, 2026, the date of the most recent game in the original
+  crawl (`REFERENCE_DATE` in `config.py`). Account age and all growth windows are
+  measured up to this date, and games played after it are ignored, so results don't
+  depend on when the script is run or when a file was crawled.
 
 ### Attributes
 
@@ -131,7 +132,7 @@ at least one edge. The 50-game filter applies here too.
 
 **Note:** `main_tc` is defined differently than in `players.csv` (rating history vs.
 sampled games), so it can differ for some core players (16 of 150), and so can their
-targets. Within each file, every player is treated the same way
+targets. Within each file, every player is treated the same way.
 
 The same columns to exclude apply as for `players.csv` (`rating` for rating growth,
 other `target_*` columns always).
@@ -158,6 +159,33 @@ Things to know about the network:
   so every edge contains at least one core player. The network looks like ~150 stars:
   a core player with their (mostly one-off) opponents around them.
 - **Most pairs played once:** 92% in `edges_all`, 73% in `edges_core`.
+
+## Snowball step: `players_snowball.csv`, `edges_snowball*.csv`
+
+To get edges between opponents, 200 opponents were crawled as well: the 200 with the
+most games against our core players. For each, their 60 most recent rated games in
+standard time controls up to the reference date, plus profile and rating history
+(`data/raw/additional_opponent_games.csv`, `200opponent_profiles.csv`,
+`200opponent_rating_history.csv`). These files are only built if the snowball games
+file exists; the files above don't change.
+
+| File                      | Players                                 | Edges |
+| ------------------------- | --------------------------------------- | ----- |
+| `players_snowball.csv`    | 150 core + 196 snowball = 346           |       |
+| `edges_snowball.csv`      | players in `players_all.csv` (5,100)    | 7,417 |
+| `edges_snowball_core.csv` | players in `players_snowball.csv` (346) | 1,067 |
+
+- **`players_snowball.csv`** has the same columns as `players.csv`, plus
+  `is_snowball`. Core rows are identical to `players.csv`, except the `_top20`
+  columns, whose threshold is recomputed over all 346 players. Snowball players are
+  described by their own games: their most recent 50 before the reference date.
+  Players with fewer than 20 such games are left out (4 of 200).
+- **`edges_snowball.csv`** = `edges_all.csv` plus the snowball games between players
+  already in `players_all.csv` (games against players we have no profile for are
+  dropped). It adds 1,469 edges without a core player, and the network becomes one
+  connected component (`edges_all.csv` has two: 4,274 + 826).
+- **`edges_snowball_core.csv`** still splits into two groups (182 + 164), roughly
+  blitz vs bullet.
 
 ## Data notes
 
