@@ -57,7 +57,7 @@ def get_attributes(
     return lu.loc[x, attribute_cols]
 
 
-def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
+def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str] = [], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
     """
     Computes a ranking of other nodes based on shortest path lengths
     and breaks ties using gower distances.
@@ -67,6 +67,8 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str],
         s (nx.Graph): The network graph.
         lu (pd.DataFrame): The lookup DataFrame with attributes.
         columns_to_ignore (list): Columns to ignore when calculating the gower distance
+        categorical_cols (list): a list with the name of the categorical columns
+
 
     Returns:
         List[Tuple[Any, Any]]: A list of tuples (node, target) in ranked order.
@@ -290,7 +292,13 @@ def find_groups(g: nx.Graph,
 
     return top_k_func(out, k)
 
-def get_permutation_scores(g: nx.Graph, lu: pd.DataFrame, target_name: str, n:int = 500):
+def get_permutation_scores(
+        g: nx.Graph,
+        lu: pd.DataFrame,
+        target_name: str,
+        columns_to_ignore: List[str] = [],
+        categorical_attributes: List[str] = [],
+        n:int = 500):
     """
         Runs the find_groups function for n times shuffling the target everytime
     Args:
@@ -309,13 +317,28 @@ def get_permutation_scores(g: nx.Graph, lu: pd.DataFrame, target_name: str, n:in
     for _ in tqdm.tqdm(range(n)):
         lu_copy[target_name] = seed.permutation(lu_copy[target_name].values)
 
-        best_score = find_groups(g, 1, lu_copy, show_progress = False)['q'].iloc[0]
+        best_score = find_groups(
+            g,
+            1,
+            lu_copy,
+            target_name,
+            columns_to_ignore,
+            categorical_attributes,
+            show_progress = False)['q'].iloc[0]
 
         scores.append(best_score)
 
     return scores
 
-def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_test: float, n:int = 500, significance_level = 0.05):
+def significance_test(g: nx.Graph,
+                      lu: pd.DataFrame,
+                      target_name: str,
+                      score_to_test: float,
+                      columns_to_ignore: List[str] = [],
+                      categorical_attributes: List[str] = [],
+                      n:int = 500,
+                      significance_level = 0.05):
+
     """
         Runs the get_permutation_scores function and plots the results
     Args:
@@ -328,7 +351,7 @@ def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_
         a list with the best scores of each iteration
     """
 
-    scores = np.array(get_permutation_scores(g, lu, target_name, n))
+    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n))
 
     p_value = (1 + np.sum(scores >= score_to_test)) / (len(scores) + 1)
     threshold = np.quantile(scores, 1 - significance_level)
@@ -359,3 +382,5 @@ def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+    return p_value
