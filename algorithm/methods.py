@@ -154,6 +154,7 @@ def q_func(s: List[Tuple[Any, int]], g: List[Tuple[Any, int]], target: str) -> f
 def discovery(ranks: List[Tuple[Any, Any]],
               g: nx.Graph,
               lu: pd.DataFrame,
+              target_name: str,
               ablation_mode: bool = False
               ) -> Tuple[int, int, float, List[Tuple[Any, Any]]]:
     """
@@ -169,7 +170,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         Tuple[int, int, float, List[Tuple[Any, Any]]]:
             (rho, sigma, best_quality, ranks)
     """
-    g_list_target = list(zip(list(g.nodes), [lu.loc[x]['target'] for x in list(g.nodes)]))
+    g_list_target = list(zip(list(g.nodes), [lu.loc[x][target_name] for x in list(g.nodes)]))
 
     if not ablation_mode:
         rho = 0
@@ -179,7 +180,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, len(ranks) + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, 'target')
+            q = q_func(temp_ranks, g_list_target, target_name)
             if q >= best:
                 best = q
                 rho = i
@@ -188,7 +189,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:2]]
         for i in range(3, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, [x for x in ranks[0:rho]], 'target')
+            q = q_func(temp_ranks, [x for x in ranks[0:rho]], target_name)
             if q >= best:
                 best = q
                 sigma = i
@@ -202,7 +203,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, 'target')
+            q = q_func(temp_ranks, g_list_target, target_name)
             if q >= best:
                 best = q
                 sigma = i
@@ -212,6 +213,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
 def process_node(node: int,
                  g: nx.Graph,
                  lu: pd.DataFrame,
+                 target_name: str,
                  columns_to_ignore: List[str],
                  categorical_attributes: List[str],
                  ablation_mode: bool = False
@@ -230,13 +232,14 @@ def process_node(node: int,
             (node, rho, sigma, q, ranks)
     """
     ranks = ranking(node, g, lu, columns_to_ignore, categorical_attributes)
-    rho, sigma, q, ranks = discovery(ranks, g, lu, ablation_mode=ablation_mode)
+    rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode)
     return node, rho, sigma, q, ranks
 
 
 def find_groups(g: nx.Graph,
                 k: int,
                 lu: pd.DataFrame,
+                target_name: str,
                 columns_to_ignore: List[str],
                 categorical_attributes: List[str],
                 ablation_mode: bool = False,
@@ -262,7 +265,7 @@ def find_groups(g: nx.Graph,
     if use_multiprocessing:
         with ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(process_node, node, g, lu, columns_to_ignore, categorical_attributes, ablation_mode): node
+                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode): node
                 for node in g.nodes
             }
 
@@ -271,7 +274,7 @@ def find_groups(g: nx.Graph,
                 out_rows.append(node_result)
     else:
         for node in tqdm.tqdm(g.nodes, disable=not show_progress):
-            node_result = process_node(node, g, lu, columns_to_ignore, categorical_attributes, ablation_mode)
+            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode)
             out_rows.append(node_result)
 
     out = pd.DataFrame(out_rows, columns=['node', 'rho', 'sigma', 'q', 'ranks']).set_index('node')
