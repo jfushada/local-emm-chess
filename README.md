@@ -20,6 +20,7 @@ All commands from the repo root.
 python -m src.features          # build players.csv, players_all.csv and players_snowball.csv
 python -m src.edges             # build edges_*.csv (run after features)
 python -m src.tabular_mining    # subgroup discovery on the player table
+python -m src.network_mining    # local subgroup discovery on the player network
 python -m pytest                # run the tests
 ```
 

@@ -70,3 +70,7 @@ PLAYERS_SNOWBALL_TABLE = PROCESSED_DIR / "players_snowball.csv"
 # edges from the original + snowball games
 EDGES_SNOWBALL_TABLE = PROCESSED_DIR / "edges_snowball.csv"            # nodes = players_all.csv
 EDGES_SNOWBALL_CORE_TABLE = PROCESSED_DIR / "edges_snowball_core.csv"  # nodes = players_snowball.csv
+
+# Local subgroup discovery on the player network (src/network_mining.py).
+NETWORK_TARGET = "target_growth_3m"      # target column to mine
+NETWORK_TOP_GROUPS = 20                  # number of top subgroups to return

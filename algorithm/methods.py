@@ -120,9 +120,12 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, target_name: str ='target', c
         ]
         D[left:right] = sorted_gower
 
+    # nodes without a target are skipped: the graph stays intact, so shortest
+    # paths still go through them, but they never count towards the score.
     ranks = [
         (node, lu.loc[node, target_name])
         for node, _ in D
+        if pd.notna(lu.loc[node, target_name])
     ]
     return ranks
 
@@ -174,7 +177,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
     # g_list_target = list(zip(list(g.nodes), [lu.loc[x][target_name] for x in list(g.nodes)]))
     population_values = lu.loc[
         list(g.nodes), target_name
-    ].to_numpy()
+    ].dropna().to_numpy()
 
     if not ablation_mode:
         rho = 0
@@ -210,7 +213,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         for i in range(5, rho + 1):
             temp_ranks.append(ranks[i - 1])
             # q = q_func(temp_ranks, g_list_target, target_name)
-            q = ks_quality([x[1] for x in temp_ranks], [lu.loc[x][target_name] for x in list(g.nodes)])
+            q = ks_quality([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 sigma = i
