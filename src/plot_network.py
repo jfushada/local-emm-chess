@@ -1,10 +1,15 @@
 # Plot the player network from the edge lists.
 
 # Run from the repo root, after src.edges:  python -m src.plot_network
-# Output: results/network_core.png and results/network_all.png
+# Output (in results/):
+#   network_core.png           players.csv + edges_core.csv
+#   network_all.png            players_all.csv + edges_all.csv
+#   network_snowball_core.png  players_snowball.csv + edges_snowball_core.csv  (if built)
+#   network_snowball.png       players_all.csv + edges_snowball.csv           (if built)
 #
-# Core players are blue, opponents orange. Node size grows with the number of
-# connections, and thicker lines mean more games between two players.
+# Core players are blue, other players (opponents / snowball players) orange.
+# Node size grows with the number of connections, and thicker lines mean more
+# games between two players. The 5,100-player plots take about a minute each.
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -33,8 +38,13 @@ def load_graph(players_file, edges_file) -> tuple[nx.Graph, pd.DataFrame]:
 
 
 def plot_network(graph: nx.Graph, players: pd.DataFrame, title: str, out_file,
-                 label_top: int = 0) -> None:
-    is_core = players["is_core"] if "is_core" in players else pd.Series(True, players.index)
+                 label_top: int = 0, other_label: str = "opponent") -> None:
+    if "is_core" in players:
+        is_core = players["is_core"]
+    elif "is_snowball" in players:
+        is_core = ~players["is_snowball"]
+    else:
+        is_core = pd.Series(True, players.index)
 
     # layout: unweighted, so the picture shows who is connected rather than how often
     pos = nx.spring_layout(graph, seed=42, k=1.5 / len(graph) ** 0.5, iterations=50)
@@ -58,7 +68,7 @@ def plot_network(graph: nx.Graph, players: pd.DataFrame, title: str, out_file,
 
     legend = [Line2D([], [], marker="o", linestyle="", color=CORE_COLOR, label="core player")]
     if not is_core.all():
-        legend.append(Line2D([], [], marker="o", linestyle="", color=OPPONENT_COLOR, label="opponent"))
+        legend.append(Line2D([], [], marker="o", linestyle="", color=OPPONENT_COLOR, label=other_label))
     if len(legend) > 1:
         ax.legend(handles=legend, loc="upper right", frameon=False, labelcolor=TEXT_COLOR)
 
@@ -83,3 +93,17 @@ if __name__ == "__main__":
     plot_network(graph, players,
                  f"All players: {graph.number_of_nodes()} players, {graph.number_of_edges()} edges",
                  results / "network_all.png")
+
+    if config.EDGES_SNOWBALL_CORE_TABLE.exists():
+        graph, players = load_graph(config.PLAYERS_SNOWBALL_TABLE, config.EDGES_SNOWBALL_CORE_TABLE)
+        plot_network(graph, players,
+                     f"Core + snowball players: {graph.number_of_nodes()} players, "
+                     f"{graph.number_of_edges()} edges",
+                     results / "network_snowball_core.png", other_label="snowball player")
+
+    if config.EDGES_SNOWBALL_TABLE.exists():
+        graph, players = load_graph(config.PLAYERS_ALL_TABLE, config.EDGES_SNOWBALL_TABLE)
+        plot_network(graph, players,
+                     f"All players, with snowball games: {graph.number_of_nodes()} players, "
+                     f"{graph.number_of_edges()} edges",
+                     results / "network_snowball.png")
