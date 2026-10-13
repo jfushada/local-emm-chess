@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
+GENERATED_DIR = DATA_DIR / "generated"
 
 GAMES_FILE = RAW_DIR / "dataset.csv"
 PROFILES_FILE = RAW_DIR / "player_profiles.csv"
@@ -71,6 +72,36 @@ PLAYERS_SNOWBALL_TABLE = PROCESSED_DIR / "players_snowball.csv"
 EDGES_SNOWBALL_TABLE = PROCESSED_DIR / "edges_snowball.csv"            # nodes = players_all.csv
 EDGES_SNOWBALL_CORE_TABLE = PROCESSED_DIR / "edges_snowball_core.csv"  # nodes = players_snowball.csv
 
+# generated data
+PLAYERS_GENERATED_TABLE = GENERATED_DIR / "players.csv"
+EDGES_GENERATED_TABLE = GENERATED_DIR / "edges.csv"
+
 # Local subgroup discovery on the player network (src/network_mining.py).
-NETWORK_TARGET = "target_growth_3m"      # target column to mine
-NETWORK_TOP_GROUPS = 20                  # number of top subgroups to return
+# Each dataset bundles its two tables, its target and the role of its columns.
+# To mine a different dataset, change NETWORK_DATASET below; network_mining.py
+# reads everything else from the entry it points to.
+NETWORK_DATASETS = {
+    "snowball": {
+        "players": PLAYERS_SNOWBALL_TABLE,
+        "edges": EDGES_SNOWBALL_CORE_TABLE,
+        "target": "target_growth_3m",
+        "categorical_columns": ["title", "main_tc"],
+        "columns_to_ignore": [
+            "username", "rating",
+            "target_growth_games",
+            "target_growth_1m", "target_growth_1m_top20",
+            "target_growth_3m", "target_growth_3m_top20",
+            "target_growth_6m", "target_growth_6m_top20",
+        ],
+    },
+    "generated": {
+        "players": PLAYERS_GENERATED_TABLE,
+        "edges": EDGES_GENERATED_TABLE,
+        "target": "target",
+        "categorical_columns": ["title", "main_tc"],
+        "columns_to_ignore": ["id", "rating", "target", "group", "WKL_target_bin"],
+    },
+}
+
+NETWORK_DATASET = "generated"   # which NETWORK_DATASETS entry to mine
+NETWORK_TOP_GROUPS = 20         # number of top subgroups to return
