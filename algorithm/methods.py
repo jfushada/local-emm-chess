@@ -59,7 +59,7 @@ def get_attributes(
     return lu.loc[x, attribute_cols]
 
 
-def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str] = [], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
+def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, target_name: str ='target', columns_to_ignore: List[str] = [], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
     """
     Computes a ranking of other nodes based on shortest path lengths
     and breaks ties using gower distances.
@@ -121,7 +121,7 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str] 
         D[left:right] = sorted_gower
 
     ranks = [
-        (node, lu.loc[node, "target"])
+        (node, lu.loc[node, target_name])
         for node, _ in D
     ]
     return ranks
@@ -238,7 +238,7 @@ def process_node(node: int,
         Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
             (node, rho, sigma, q, ranks)
     """
-    ranks = ranking(node, g, lu, columns_to_ignore, categorical_attributes)
+    ranks = ranking(node, g, lu, target_name, columns_to_ignore, categorical_attributes)
     rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode)
     return node, rho, sigma, q, ranks
 
