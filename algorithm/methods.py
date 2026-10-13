@@ -5,6 +5,8 @@ import tqdm
 import networkx as nx
 import gower
 import matplotlib.pyplot as plt
+from scipy.stats import ks_2samp
+import math
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, List, Tuple
@@ -73,10 +75,6 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str] 
     Returns:
         List[Tuple[Any, Any]]: A list of tuples (node, target) in ranked order.
     """
-    if categorical_cols is None:
-        categorical_cols = []
-
-
     attribute_cols = [
         col for col in lu.columns
         if col not in columns_to_ignore
@@ -90,6 +88,7 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str] 
     cat_features = [
         col in categorical_cols for col in attribute_cols
     ]
+
 
     d_dict = nx.shortest_path_length(s, x, weight="weight")
     distances = list(d_dict.values())
@@ -172,7 +171,10 @@ def discovery(ranks: List[Tuple[Any, Any]],
         Tuple[int, int, float, List[Tuple[Any, Any]]]:
             (rho, sigma, best_quality, ranks)
     """
-    g_list_target = list(zip(list(g.nodes), [lu.loc[x][target_name] for x in list(g.nodes)]))
+    # g_list_target = list(zip(list(g.nodes), [lu.loc[x][target_name] for x in list(g.nodes)]))
+    population_values = lu.loc[
+        list(g.nodes), target_name
+    ].to_numpy()
 
     if not ablation_mode:
         rho = 0
@@ -182,7 +184,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, len(ranks) + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, target_name)
+            # q = q_func(temp_ranks, g_list_target, target_name)
+            q = ks_quality([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 rho = i
@@ -191,7 +194,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:2]]
         for i in range(3, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, [x for x in ranks[0:rho]], target_name)
+            # q = q_func(temp_ranks, [x for x in ranks[0:rho]], target_name)
+            q = ks_quality([x[1] for x in temp_ranks], [x[1] for x in ranks[0:rho]])
             if q >= best:
                 best = q
                 sigma = i
@@ -205,7 +209,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, target_name)
+            # q = q_func(temp_ranks, g_list_target, target_name)
+            q = ks_quality([x[1] for x in temp_ranks], [lu.loc[x][target_name] for x in list(g.nodes)])
             if q >= best:
                 best = q
                 sigma = i
@@ -384,3 +389,19 @@ def significance_test(g: nx.Graph,
     plt.show()
 
     return p_value
+
+def ks_quality(subgroup_values, reference_values):
+    """Compare two rating-growth distributions using a size-adjusted KS score."""
+    if len(subgroup_values) == 0 or len(reference_values) == 0:
+        raise ValueError("Both groups must contain at least one value.")
+
+    ks_statistic = ks_2samp(subgroup_values, reference_values).statistic
+
+    subgroup_size = len(subgroup_values)
+    reference_size = len(reference_values)
+
+    size_adjustment = math.sqrt(
+        subgroup_size * reference_size / (subgroup_size + reference_size)
+    )
+
+    return ks_statistic * size_adjustment
