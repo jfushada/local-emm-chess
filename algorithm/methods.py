@@ -42,22 +42,22 @@ def top_k_func(groups: pd.DataFrame, k: int) -> pd.DataFrame:
     return top_k.iloc[:k]
 
 
-def get_attributes(x: int, lu: pd.DataFrame) -> List[float]:
-    """
-    Retrieves numeric attribute values from a lookup DataFrame for a single node.
+def get_attributes(
+    x: int,
+    lu: pd.DataFrame,
+    drop_cols: List[str] = None
+) -> pd.Series:
+    if drop_cols is None:
+        drop_cols = ["target"]
 
-    Args:
-        x (int): The node identifier.
-        lu (pd.DataFrame): The lookup DataFrame with numeric columns.
+    attribute_cols = lu.columns.drop(
+        [col for col in drop_cols if col in lu.columns]
+    )
 
-    Returns:
-        List[float]: A list of numeric values for the node.
-    """
-    numeric_cols = lu.select_dtypes(include=[np.number]).columns
-    return [float(i) for i in lu.loc[x, numeric_cols].tolist()]
+    return lu.loc[x, attribute_cols]
 
 
-def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
+def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, columns_to_ignore: List[str], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
     """
     Computes a ranking of other nodes based on shortest path lengths
     and breaks ties using gower distances.
@@ -66,10 +66,29 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
         x (int): The reference node.
         s (nx.Graph): The network graph.
         lu (pd.DataFrame): The lookup DataFrame with attributes.
+        columns_to_ignore (list): Columns to ignore when calculating the gower distance
 
     Returns:
         List[Tuple[Any, Any]]: A list of tuples (node, target) in ranked order.
     """
+    if categorical_cols is None:
+        categorical_cols = []
+
+
+    attribute_cols = [
+        col for col in lu.columns
+        if col not in columns_to_ignore
+    ]
+
+    categorical_cols = [
+        col for col in categorical_cols
+        if col in attribute_cols
+    ]
+
+    cat_features = [
+        col in categorical_cols for col in attribute_cols
+    ]
+
     d_dict = nx.shortest_path_length(s, x, weight="weight")
     distances = list(d_dict.values())
     D = list(zip(d_dict.keys(), d_dict.values()))
@@ -79,14 +98,31 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
         right = len(distances) - distances[::-1].index(d)
         tie_list = D[left:right]
 
-        gower_list = gower.gower_matrix(
-            pd.DataFrame([get_attributes(x, lu)]),
-            pd.DataFrame([get_attributes(t[0], lu) for t in tie_list])
-        )
-        sorted_gower = [node for _, node in sorted(zip(gower_list[0], tie_list))]
+        reference = lu.loc[[x], attribute_cols]
+        candidates = lu.loc[
+            [node for node, _ in tie_list],
+            attribute_cols
+        ]
+
+        gower_distances = gower.gower_matrix(
+            reference,
+            candidates,
+            cat_features=cat_features
+        )[0]
+
+        sorted_gower = [
+            node_distance
+            for _, node_distance in sorted(
+                zip(gower_distances, tie_list),
+                key=lambda item: item[0]
+            )
+        ]
         D[left:right] = sorted_gower
 
-    ranks = [(node[0], lu.loc[node[0]]['target']) for node in D]
+    ranks = [
+        (node, lu.loc[node, "target"])
+        for node, _ in D
+    ]
     return ranks
 
 
@@ -176,6 +212,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
 def process_node(node: int,
                  g: nx.Graph,
                  lu: pd.DataFrame,
+                 columns_to_ignore: List[str],
+                 categorical_attributes: List[str],
                  ablation_mode: bool = False
                  ) -> Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
     """
@@ -191,7 +229,7 @@ def process_node(node: int,
         Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
             (node, rho, sigma, q, ranks)
     """
-    ranks = ranking(node, g, lu)
+    ranks = ranking(node, g, lu, columns_to_ignore, categorical_attributes)
     rho, sigma, q, ranks = discovery(ranks, g, lu, ablation_mode=ablation_mode)
     return node, rho, sigma, q, ranks
 
@@ -199,6 +237,8 @@ def process_node(node: int,
 def find_groups(g: nx.Graph,
                 k: int,
                 lu: pd.DataFrame,
+                columns_to_ignore: List[str],
+                categorical_attributes: List[str],
                 ablation_mode: bool = False,
                 use_multiprocessing: bool = True,
                 show_progress: bool = True
@@ -222,7 +262,7 @@ def find_groups(g: nx.Graph,
     if use_multiprocessing:
         with ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(process_node, node, g, lu, ablation_mode): node
+                executor.submit(process_node, node, g, lu, columns_to_ignore, categorical_attributes, ablation_mode): node
                 for node in g.nodes
             }
 
@@ -231,7 +271,7 @@ def find_groups(g: nx.Graph,
                 out_rows.append(node_result)
     else:
         for node in tqdm.tqdm(g.nodes, disable=not show_progress):
-            node_result = process_node(node, g, lu, ablation_mode)
+            node_result = process_node(node, g, lu, columns_to_ignore, categorical_attributes, ablation_mode)
             out_rows.append(node_result)
 
     out = pd.DataFrame(out_rows, columns=['node', 'rho', 'sigma', 'q', 'ranks']).set_index('node')
