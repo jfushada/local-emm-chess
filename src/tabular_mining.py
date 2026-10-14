@@ -47,15 +47,24 @@ def make_selectors(df):
             thresholds = series.quantile([0.25, 0.5, 0.75]).unique()
 
             for threshold in thresholds:
-                selectors.append(
-                    (column, "<=", float(threshold))
-                )
-                selectors.append(
-                    (column, ">", float(threshold))
-                )
+                le_mask = series <= threshold
+                gt_mask = series > threshold
+
+                if le_mask.any() and not le_mask.all():
+                    selectors.append(
+                        (column, "<=", float(threshold))
+                    )
+
+                if gt_mask.any() and not gt_mask.all():
+                    selectors.append(
+                        (column, ">", float(threshold))
+                    )
         else:
             for value in series.unique():
-                selectors.append((column, "=", value))
+                mask = series == value
+
+                if mask.any() and not mask.all():
+                    selectors.append((column, "=", value))
 
     return selectors
 

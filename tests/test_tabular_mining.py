@@ -96,3 +96,19 @@ def test_invalid_quality_raises_error(monkeypatch):
 
     with pytest.raises(ValueError):
         tabular_mining.mine_subgroups(quality="invalid")
+
+
+
+def test_make_selectors_skips_conditions_matching_all_or_no_players():
+    """Selectors should meaningfully filter the player dataset."""
+    df = pd.DataFrame({
+        "share_blitz": [1.0, 1.0, 1.0],
+        "share_rapid": [0.0, 0.5, 1.0],
+    })
+
+    selectors = tabular_mining.make_selectors(df)
+    # A constant column should not produce any selectors.
+    assert all(column != "share_blitz" for column, _, *_ in selectors)
+    # A varying column should still produce candidate selectors.
+    assert any(column == "share_rapid" for column, _, *_ in selectors)
+
