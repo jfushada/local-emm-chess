@@ -16,6 +16,7 @@ TARGET = "target_growth_3m"
 # so they must not be used to describe subgroups.
 EXCLUDED_COLUMNS = {
     "username",
+    "n_games",
     "target_growth_games",
     "target_growth_1m",
     "target_growth_1m_top20",
