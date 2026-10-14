@@ -17,6 +17,7 @@ TARGET = "target_growth_3m"
 EXCLUDED_COLUMNS = {
     "username",
     "n_games",
+    "rating",
     "target_growth_games",
     "target_growth_1m",
     "target_growth_1m_top20",
