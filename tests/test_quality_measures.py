@@ -4,7 +4,8 @@ from src.quality_measures import ks_quality
 
 
 def test_mean_quality_different_means():
-    assert mean_quality([80, 100, 60], [10, -20, 30]) == pytest.approx(73.3333333333)
+    expected = abs(80 - (20 / 3)) * (3 * 3 / 6) ** 0.5
+    assert mean_quality([80, 100, 60], [10, -20, 30]) == pytest.approx(expected)
 
 
 def test_mean_quality_equal_means():
@@ -34,3 +35,11 @@ def test_ks_quality_identical_distributions():
 def test_ks_quality_empty_group():
     with pytest.raises(ValueError):
         ks_quality([], [10, 20, 30])
+
+
+def test_mean_quality_adjusts_for_group_size():
+    subgroup = [10, 10]
+    reference = [0, 0, 0]
+    expected = 10 * (6 / 5) ** 0.5
+
+    assert mean_quality(subgroup, reference) == pytest.approx(expected)

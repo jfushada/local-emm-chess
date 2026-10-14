@@ -2,14 +2,20 @@ from scipy.stats import ks_2samp
 import math
 
 def mean_quality(subgroup_values, reference_values):
-    """Measure the absolute difference between two groups' means."""
+    """Measure the size-adjusted difference between two groups' means."""
     if len(subgroup_values) == 0 or len(reference_values) == 0:
         raise ValueError("Both groups must contain at least one value.")
 
     subgroup_mean = sum(subgroup_values) / len(subgroup_values)
     reference_mean = sum(reference_values) / len(reference_values)
 
-    return abs(subgroup_mean - reference_mean)
+    size_adjustment = math.sqrt(
+        len(subgroup_values) * len(reference_values)
+        / (len(subgroup_values) + len(reference_values))
+    )
+
+    return abs(subgroup_mean - reference_mean) * size_adjustment
+
 
 
 def ks_quality(subgroup_values, reference_values):
