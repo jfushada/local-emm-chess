@@ -241,7 +241,7 @@ class Database:
             writer.writerow(
                 [
                     "id",
-                    "name",
+                    "username",
                     "title",
                     "main_tc",
                     "rating",
