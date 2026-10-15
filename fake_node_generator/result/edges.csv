@@ -1,4 +1,4 @@
-player_a_name,player_b_name,games,distance,player_a_group,player_b_group
+player_a,player_b,n_games,distance,player_a_group,player_b_group
 Camila Bakker,Diego Patel,4,0.25,0,0
 Camila Bakker,Aisha Horvat,4,0.25,0,0
 Camila Bakker,Clara Rossi,5,0.2,0,0

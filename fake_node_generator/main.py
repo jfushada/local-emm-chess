@@ -1,4 +1,4 @@
-from database import Database
+from database import Database, RESULT_DIR
 from configuration import Configuration
 from tools.graph_visualizer import visualize_graph
 
@@ -21,7 +21,7 @@ def main():
         planted_subgroups=main_db.planted_subgroups,
         seed=configuration.get_sbm_seed(),
         show_edge_labels=False,
-        save_path="result/graph.png",
+        save_path=RESULT_DIR / "graph.png",
     )
 
 
