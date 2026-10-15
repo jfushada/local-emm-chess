@@ -120,12 +120,12 @@ class Database:
             node_attrs["target"] = target
 
     def plant_subgroup(self) -> None:
-        subgroup_size = int(self.configuration.get_sigma())
+        groups = {group.id: group for group in self.configuration.get_groups()}
 
         self.planted_subgroups = []
         used = set()  # players already in some planted group
-        for group in self.configuration.get_groups():  # community 0, 1, 2, 3
-            subgroup = 0
+        for subgroup, spec in enumerate(self.configuration.get_planted_subgroups()):
+            group = groups[spec.group]
             candidates = [
                 n
                 for n in self.graph.nodes()
@@ -138,22 +138,26 @@ class Database:
                     self.rng.choice(candidates)
                 )  # select a random node between candidates
                 ranking = self._rank_from_center(centre)
-                members = [int(n) for n in ranking["player"].head(subgroup_size)]
+                members = [int(n) for n in ranking["player"].head(spec.sigma)]
                 if not used & set(members):  # no overlap with earlier groups
                     break
             else:
                 warnings.warn(
-                    f"Could not find a non-overlapping subgroup for group {group.id} "
-                    f"after 100 attempts; skipping this group"
+                    f"Could not find a non-overlapping subgroup {subgroup} in group "
+                    f"{group.id} after 100 attempts; skipping this subgroup"
                 )
                 continue
             for n in members:
-                self.graph.nodes[n]["target"] += group.target_std_value * 1.0
+                self.graph.nodes[n]["target"] += (
+                    group.target_std_value * spec.shift_strength
+                )
             used |= set(members)
             self.planted_subgroups.append(
                 {
                     "subgroup": subgroup,
                     "group": group.id,
+                    "sigma": spec.sigma,
+                    "shift_strength": spec.shift_strength,
                     "centre": centre,
                     "members": members,
                 }

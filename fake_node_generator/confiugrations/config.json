@@ -8,8 +8,6 @@
     "global_random_seed" : 10,
     "number_of_games_in_group": 5,
     "number_of_games_out_of_group": 1,
-    "sigma": 5,
-    "shift_strength": 1,
     "the_strength_of_the_shift": 1,
     "target_noise_sd": 1,
     "min_rating": 1400,
@@ -51,5 +49,11 @@
             "target_base_line" : 30,
             "target_std_value": 80
         }
+    ],
+    "planted_subgroups": [
+        {"group": 0, "sigma": 3, "shift_strength": 0.5},
+        {"group": 1, "sigma": 5, "shift_strength": 1},
+        {"group": 2, "sigma": 8, "shift_strength": 1.5},
+        {"group": 3, "sigma": 10, "shift_strength": 2}
     ]
 }
