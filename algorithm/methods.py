@@ -5,11 +5,11 @@ import tqdm
 import networkx as nx
 import gower
 import matplotlib.pyplot as plt
-from scipy.stats import ks_2samp
-import math
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, List, Tuple
+
+from src.quality_measures import ks_quality
 
 
 def top_k_func(groups: pd.DataFrame, k: int) -> pd.DataFrame:
@@ -392,19 +392,3 @@ def significance_test(g: nx.Graph,
     plt.show()
 
     return p_value
-
-def ks_quality(subgroup_values, reference_values):
-    """Compare two rating-growth distributions using a size-adjusted KS score."""
-    if len(subgroup_values) == 0 or len(reference_values) == 0:
-        raise ValueError("Both groups must contain at least one value.")
-
-    ks_statistic = ks_2samp(subgroup_values, reference_values).statistic
-
-    subgroup_size = len(subgroup_values)
-    reference_size = len(reference_values)
-
-    size_adjustment = math.sqrt(
-        subgroup_size * reference_size / (subgroup_size + reference_size)
-    )
-
-    return ks_statistic * size_adjustment

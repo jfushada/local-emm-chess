@@ -101,7 +101,19 @@ NETWORK_DATASETS = {
         "categorical_columns": ["title", "main_tc"],
         "columns_to_ignore": ["id", "rating", "target", "group", "WKL_target_bin"],
     },
+    "all": {
+        "players": PLAYERS_ALL_TABLE,
+        "edges": EDGES_ALL_TABLE,
+        "target": "target_growth_3m",
+        "categorical_columns": ["title", "main_tc"],
+        "columns_to_ignore": [
+            "is_core", "username", "rating",
+            "target_growth_1m", "target_growth_1m_top20",
+            "target_growth_3m", "target_growth_3m_top20",
+            "target_growth_6m", "target_growth_6m_top20",
+        ],
+    },
 }
 
-NETWORK_DATASET = "generated"   # which NETWORK_DATASETS entry to mine
+NETWORK_DATASET = "all"   # which NETWORK_DATASETS entry to mine
 NETWORK_TOP_GROUPS = 20         # number of top subgroups to return
