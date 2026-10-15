@@ -1,5 +1,6 @@
 import csv
 import json
+import warnings
 from pathlib import Path
 import networkx as nx
 import numpy as np
@@ -140,6 +141,12 @@ class Database:
                 members = [int(n) for n in ranking["player"].head(subgroup_size)]
                 if not used & set(members):  # no overlap with earlier groups
                     break
+            else:
+                warnings.warn(
+                    f"Could not find a non-overlapping subgroup for group {group.id} "
+                    f"after 100 attempts; skipping this group"
+                )
+                continue
             for n in members:
                 self.graph.nodes[n]["target"] += group.target_std_value * 1.0
             used |= set(members)
