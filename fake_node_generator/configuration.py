@@ -18,6 +18,7 @@ class Configuration:
         self._player_target_mean_value: float | None = None
         self._groups: list[Group] | None = None
         self._sbm_seed: int | None = None
+        self._global_random_seed: int | None = None
         self._number_of_games_in_group: int | None = None
         self._number_of_games_out_of_group: int | None = None
         self._sigma: float | None = None
@@ -47,6 +48,9 @@ class Configuration:
             data, "player_target_mean_value"
         )
         self._sbm_seed = self._require_non_negative_int(data, "SBM_seed")
+        self._global_random_seed = self._require_non_negative_int(
+            data, "global_random_seed"
+        )
         self._number_of_games_in_group = self._require_positive_int(
             data, "number_of_games_in_group"
         )
@@ -97,6 +101,11 @@ class Configuration:
         if self._sbm_seed is None:
             self.read_config_data()
         return self._sbm_seed
+
+    def get_global_random_seed(self) -> int:
+        if self._global_random_seed is None:
+            self.read_config_data()
+        return self._global_random_seed
 
     def get_number_of_games_in_group(self) -> int:
         if self._number_of_games_in_group is None:

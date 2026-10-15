@@ -5,6 +5,7 @@
     "player_target_std_value": 87,
     "player_target_mean_value": 12,
     "SBM_seed": 2,
+    "global_random_seed" : 10,
     "number_of_games_in_group": 5,
     "number_of_games_out_of_group": 1,
     "sigma": 5,

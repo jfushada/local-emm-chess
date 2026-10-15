@@ -1,6 +1,5 @@
 import csv
 import json
-import random
 from pathlib import Path
 import networkx as nx
 import numpy as np
@@ -34,6 +33,7 @@ class Database:
         self.configuration = configuration
         self.configuration.read_config_data()
         self.planted_subgroups = []
+        self.rng = np.random.default_rng(self.configuration.get_global_random_seed())
 
     def create_graph(self) -> None:
         # create group sizes
@@ -84,18 +84,17 @@ class Database:
     def assgin_attributes_to_players(self) -> None:
         for node_id, node_attrs in self.graph.nodes.items():
             # assign title to player
-            title_random_chance = random.random()
+            title_random_chance = self.rng.random()
             if title_random_chance < 0.69:
                 node_attrs["title"] = None
             elif title_random_chance >= 0.69 and title_random_chance < 0.87:
                 node_attrs["title"] = PlayerTitle.GM
             else:
-                node_attrs["title"] = random.choice(
-                    [PlayerTitle.IM, PlayerTitle.FM, PlayerTitle.NM, PlayerTitle.CM]
-                )
+                titles = [PlayerTitle.IM, PlayerTitle.FM, PlayerTitle.NM, PlayerTitle.CM]
+                node_attrs["title"] = titles[self.rng.integers(len(titles))]
 
             # assign main time control to player
-            mc_random_chance = random.random()
+            mc_random_chance = self.rng.random()
             if mc_random_chance < 0.67:
                 node_attrs["main_tc"] = MainTimeControl.BLITZ
             elif mc_random_chance >= 0.67 and mc_random_chance < 0.99:
@@ -107,7 +106,7 @@ class Database:
             group = self.configuration.get_groups()[group_id]
 
             # generate rating for player
-            rate = np.random.normal(group.mean, group.std)
+            rate = self.rng.normal(group.mean, group.std)
             rate = min(
                 max(rate, self.configuration.get_min_rating()),
                 self.configuration.get_max_rating(),
@@ -115,7 +114,7 @@ class Database:
             node_attrs["rating"] = round(float(rate))
 
             # generate target rating for player
-            noise = np.random.normal(0, group.target_std_value)
+            noise = self.rng.normal(0, group.target_std_value)
             target = round(float(group.target_base_line + noise), 1)
             node_attrs["target"] = target
 
@@ -135,7 +134,7 @@ class Database:
                 continue
             for attempt in range(100):
                 centre = int(
-                    np.random.choice(candidates)
+                    self.rng.choice(candidates)
                 )  # select a random node between candidates
                 ranking = self._rank_from_center(centre)
                 members = [int(n) for n in ranking["player"].head(subgroup_size)]
