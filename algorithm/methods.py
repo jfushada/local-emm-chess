@@ -345,7 +345,8 @@ def significance_test(g: nx.Graph,
                       columns_to_ignore: List[str] = [],
                       categorical_attributes: List[str] = [],
                       n:int = 500,
-                      significance_level = 0.05):
+                      significance_level = 0.05,
+                      output_file = None):
 
     """
         Runs the get_permutation_scores function and plots the results
@@ -355,6 +356,7 @@ def significance_test(g: nx.Graph,
         target_name (str): The name of the target column.
         score_to_test (float): The score to test if its statistically significant
         n (int): Number of iterations to run.
+        output_file: If given, the histogram is saved there instead of shown.
     Returns:
         a list with the best scores of each iteration
     """
@@ -379,16 +381,20 @@ def significance_test(g: nx.Graph,
         color="orange",
         linestyle=":",
         linewidth=1,
-        label=f"{(1 - 0.05) * 100}th percentile = {threshold:.3f}"
+        label=f"{int((1 - significance_level) * 100)}th percentile = {threshold:.3f}"
     )
 
     result = "SIGNIFICANT" if p_value <= significance_level else "NOT SIGNIFICANT"
 
     plt.title(f"Permutation test: {result} (p = {p_value:.4f})")
-    plt.xlabel("Best WRAcc under permutation")
+    plt.xlabel("Best quality under permutation")
     plt.ylabel("Frequency")
-    plt.legend()
+    plt.legend(loc="upper left")
     plt.tight_layout()
-    plt.show()
+    if output_file is not None:
+        plt.savefig(output_file, dpi=200, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
 
     return p_value

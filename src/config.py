@@ -8,10 +8,13 @@ DATA_DIR = ROOT / "data"
 RAW_DIR = DATA_DIR / "raw"
 PROCESSED_DIR = DATA_DIR / "processed"
 GENERATED_DIR = DATA_DIR / "generated"
+RESULTS_DIR = ROOT / "results"
+SIGNIFICANCE_TEST_DIR = RESULTS_DIR / "significance_tests"
 
 GAMES_FILE = RAW_DIR / "dataset.csv"
 PROFILES_FILE = RAW_DIR / "player_profiles.csv"
 RATING_HISTORY_FILE = RAW_DIR / "player_rating_history.csv"
+
 
  # one row per core player
 PLAYERS_TABLE = PROCESSED_DIR / "players.csv"  
@@ -115,5 +118,12 @@ NETWORK_DATASETS = {
     },
 }
 
-NETWORK_DATASET = "all"   # which NETWORK_DATASETS entry to mine
+NETWORK_DATASET = "snowball"   # which NETWORK_DATASETS entry to mine
 NETWORK_TOP_GROUPS = 20         # number of top subgroups to return
+
+# Significance test (src/significance_test.py): permutation test on the best
+# subgroup score of the active dataset (NETWORK_DATASET above).
+SCORE_TO_TEST = 1.55
+SIGNIFICANCE_N = 500                                  # number of permutations
+SIGNIFICANCE_LEVEL = 0.05
+SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}.png"
