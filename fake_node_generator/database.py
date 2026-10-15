@@ -278,9 +278,9 @@ class Database:
             writer = csv.writer(file)
             writer.writerow(
                 [
-                    "player_a_name",
-                    "player_b_name",
-                    "games",
+                    "player_a",
+                    "player_b",
+                    "n_games",
                     "distance",
                     "player_a_group",
                     "player_b_group",
