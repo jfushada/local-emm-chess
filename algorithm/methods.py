@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Any, List, Tuple
 
+from src.quality_measures import ks_quality
+
 
 def top_k_func(groups: pd.DataFrame, k: int) -> pd.DataFrame:
     """
@@ -42,22 +44,22 @@ def top_k_func(groups: pd.DataFrame, k: int) -> pd.DataFrame:
     return top_k.iloc[:k]
 
 
-def get_attributes(x: int, lu: pd.DataFrame) -> List[float]:
-    """
-    Retrieves numeric attribute values from a lookup DataFrame for a single node.
+def get_attributes(
+    x: int,
+    lu: pd.DataFrame,
+    drop_cols: List[str] = None
+) -> pd.Series:
+    if drop_cols is None:
+        drop_cols = ["target"]
 
-    Args:
-        x (int): The node identifier.
-        lu (pd.DataFrame): The lookup DataFrame with numeric columns.
+    attribute_cols = lu.columns.drop(
+        [col for col in drop_cols if col in lu.columns]
+    )
 
-    Returns:
-        List[float]: A list of numeric values for the node.
-    """
-    numeric_cols = lu.select_dtypes(include=[np.number]).columns
-    return [float(i) for i in lu.loc[x, numeric_cols].tolist()]
+    return lu.loc[x, attribute_cols]
 
 
-def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
+def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, target_name: str ='target', columns_to_ignore: List[str] = [], categorical_cols: List[str] = []) -> List[Tuple[Any, Any]]:
     """
     Computes a ranking of other nodes based on shortest path lengths
     and breaks ties using gower distances.
@@ -66,10 +68,28 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
         x (int): The reference node.
         s (nx.Graph): The network graph.
         lu (pd.DataFrame): The lookup DataFrame with attributes.
+        columns_to_ignore (list): Columns to ignore when calculating the gower distance
+        categorical_cols (list): a list with the name of the categorical columns
+
 
     Returns:
         List[Tuple[Any, Any]]: A list of tuples (node, target) in ranked order.
     """
+    attribute_cols = [
+        col for col in lu.columns
+        if col not in columns_to_ignore
+    ]
+
+    categorical_cols = [
+        col for col in categorical_cols
+        if col in attribute_cols
+    ]
+
+    cat_features = [
+        col in categorical_cols for col in attribute_cols
+    ]
+
+
     d_dict = nx.shortest_path_length(s, x, weight="weight")
     distances = list(d_dict.values())
     D = list(zip(d_dict.keys(), d_dict.values()))
@@ -79,46 +99,43 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame) -> List[Tuple[Any, Any]]:
         right = len(distances) - distances[::-1].index(d)
         tie_list = D[left:right]
 
-        gower_list = gower.gower_matrix(
-            pd.DataFrame([get_attributes(x, lu)]),
-            pd.DataFrame([get_attributes(t[0], lu) for t in tie_list])
-        )
-        sorted_gower = [node for _, node in sorted(zip(gower_list[0], tie_list))]
+        reference = lu.loc[[x], attribute_cols]
+        candidates = lu.loc[
+            [node for node, _ in tie_list],
+            attribute_cols
+        ]
+
+        gower_distances = gower.gower_matrix(
+            reference,
+            candidates,
+            cat_features=cat_features
+        )[0]
+
+        sorted_gower = [
+            node_distance
+            for _, node_distance in sorted(
+                zip(gower_distances, tie_list),
+                key=lambda item: item[0]
+            )
+        ]
         D[left:right] = sorted_gower
 
-    ranks = [(node[0], lu.loc[node[0]]['target']) for node in D]
+    # nodes without a target are skipped: the graph stays intact, so shortest
+    # paths still go through them, but they never count towards the score.
+    ranks = [
+        (node, lu.loc[node, target_name])
+        for node, _ in D
+        if pd.notna(lu.loc[node, target_name])
+    ]
     return ranks
-
-
-def q_func(s: List[Tuple[Any, int]], g: List[Tuple[Any, int]], target: str) -> float:
-    """
-    Computes the WRAcc-based quality measure Q for a given subgroup.
-
-    Args:
-        s (List[Tuple[Any, int]]): The subgroup's (node, target) pairs.
-        g (List[Tuple[Any, int]]): The whole population's (node, target) pairs.
-        target (str): Not used in this function, included for consistency.
-
-    Returns:
-        float: The quality measure Q.
-    """
-    s_size = len(s)
-    g_size = len(g)
-    if s_size == 0 or g_size == 0:
-        return 0
-
-    cover = s_size / g_size
-    n_target_s = sum([x[1] for x in s])
-    n_target_g = sum([x[1] for x in g])
-
-    wr_acc = (cover ** 0.5) * ((n_target_s / s_size) - (n_target_g / g_size))
-    return abs(wr_acc)
 
 
 def discovery(ranks: List[Tuple[Any, Any]],
               g: nx.Graph,
               lu: pd.DataFrame,
-              ablation_mode: bool = False
+              target_name: str,
+              ablation_mode: bool = False,
+              quality_measure = ks_quality
               ) -> Tuple[int, int, float, List[Tuple[Any, Any]]]:
     """
     Determines thresholds rho and sigma based on the Q measure.
@@ -133,7 +150,10 @@ def discovery(ranks: List[Tuple[Any, Any]],
         Tuple[int, int, float, List[Tuple[Any, Any]]]:
             (rho, sigma, best_quality, ranks)
     """
-    g_list_target = list(zip(list(g.nodes), [lu.loc[x]['target'] for x in list(g.nodes)]))
+    # g_list_target = list(zip(list(g.nodes), [lu.loc[x][target_name] for x in list(g.nodes)]))
+    population_values = lu.loc[
+        list(g.nodes), target_name
+    ].dropna().to_numpy()
 
     if not ablation_mode:
         rho = 0
@@ -143,7 +163,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, len(ranks) + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, 'target')
+            # q = q_func(temp_ranks, g_list_target, target_name)
+            q = quality_measure([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 rho = i
@@ -152,7 +173,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:2]]
         for i in range(3, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, [x for x in ranks[0:rho]], 'target')
+            # q = q_func(temp_ranks, [x for x in ranks[0:rho]], target_name)
+            q = quality_measure([x[1] for x in temp_ranks], [x[1] for x in ranks[0:rho]])
             if q >= best:
                 best = q
                 sigma = i
@@ -166,7 +188,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
         temp_ranks = [x for x in ranks[0:4]]
         for i in range(5, rho + 1):
             temp_ranks.append(ranks[i - 1])
-            q = q_func(temp_ranks, g_list_target, 'target')
+            # q = q_func(temp_ranks, g_list_target, target_name)
+            q = quality_measure([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 sigma = i
@@ -176,7 +199,11 @@ def discovery(ranks: List[Tuple[Any, Any]],
 def process_node(node: int,
                  g: nx.Graph,
                  lu: pd.DataFrame,
-                 ablation_mode: bool = False
+                 target_name: str,
+                 columns_to_ignore: List[str],
+                 categorical_attributes: List[str],
+                 ablation_mode: bool = False,
+                 quality_measure = ks_quality
                  ) -> Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
     """
     Processes a single node by computing its ranking and subgroup qualities.
@@ -191,17 +218,22 @@ def process_node(node: int,
         Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
             (node, rho, sigma, q, ranks)
     """
-    ranks = ranking(node, g, lu)
-    rho, sigma, q, ranks = discovery(ranks, g, lu, ablation_mode=ablation_mode)
+    ranks = ranking(node, g, lu, target_name, columns_to_ignore, categorical_attributes)
+    rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode,
+                                     quality_measure=quality_measure)
     return node, rho, sigma, q, ranks
 
 
 def find_groups(g: nx.Graph,
                 k: int,
                 lu: pd.DataFrame,
+                target_name: str,
+                columns_to_ignore: List[str],
+                categorical_attributes: List[str],
                 ablation_mode: bool = False,
                 use_multiprocessing: bool = True,
-                show_progress: bool = True
+                show_progress: bool = True,
+                quality_measure = ks_quality
                 ) -> pd.DataFrame:
     """
     Finds subgroups in the graph, either in parallel (multiprocessing) or
@@ -222,7 +254,7 @@ def find_groups(g: nx.Graph,
     if use_multiprocessing:
         with ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(process_node, node, g, lu, ablation_mode): node
+                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure): node
                 for node in g.nodes
             }
 
@@ -231,7 +263,7 @@ def find_groups(g: nx.Graph,
                 out_rows.append(node_result)
     else:
         for node in tqdm.tqdm(g.nodes, disable=not show_progress):
-            node_result = process_node(node, g, lu, ablation_mode)
+            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure)
             out_rows.append(node_result)
 
     out = pd.DataFrame(out_rows, columns=['node', 'rho', 'sigma', 'q', 'ranks']).set_index('node')
@@ -247,7 +279,14 @@ def find_groups(g: nx.Graph,
 
     return top_k_func(out, k)
 
-def get_permutation_scores(g: nx.Graph, lu: pd.DataFrame, target_name: str, n:int = 500):
+def get_permutation_scores(
+        g: nx.Graph,
+        lu: pd.DataFrame,
+        target_name: str,
+        columns_to_ignore: List[str] = [],
+        categorical_attributes: List[str] = [],
+        n:int = 500,
+        quality_measure = ks_quality):
     """
         Runs the find_groups function for n times shuffling the target everytime
     Args:
@@ -266,13 +305,31 @@ def get_permutation_scores(g: nx.Graph, lu: pd.DataFrame, target_name: str, n:in
     for _ in tqdm.tqdm(range(n)):
         lu_copy[target_name] = seed.permutation(lu_copy[target_name].values)
 
-        best_score = find_groups(g, 1, lu_copy, show_progress = False)['q'].iloc[0]
+        best_score = find_groups(
+            g,
+            1,
+            lu_copy,
+            target_name,
+            columns_to_ignore,
+            categorical_attributes,
+            show_progress = False,
+            quality_measure = quality_measure)['q'].iloc[0]
 
         scores.append(best_score)
 
     return scores
 
-def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_test: float, n:int = 500, significance_level = 0.05):
+def significance_test(g: nx.Graph,
+                      lu: pd.DataFrame,
+                      target_name: str,
+                      score_to_test: float,
+                      columns_to_ignore: List[str] = [],
+                      categorical_attributes: List[str] = [],
+                      n:int = 500,
+                      significance_level = 0.05,
+                      output_file = None,
+                      quality_measure = ks_quality):
+
     """
         Runs the get_permutation_scores function and plots the results
     Args:
@@ -281,11 +338,12 @@ def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_
         target_name (str): The name of the target column.
         score_to_test (float): The score to test if its statistically significant
         n (int): Number of iterations to run.
+        output_file: If given, the histogram is saved there instead of shown.
     Returns:
         a list with the best scores of each iteration
     """
 
-    scores = np.array(get_permutation_scores(g, lu, target_name, n))
+    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n, quality_measure))
 
     p_value = (1 + np.sum(scores >= score_to_test)) / (len(scores) + 1)
     threshold = np.quantile(scores, 1 - significance_level)
@@ -305,14 +363,20 @@ def significance_test(g: nx.Graph, lu: pd.DataFrame, target_name: str, score_to_
         color="orange",
         linestyle=":",
         linewidth=1,
-        label=f"{(1 - 0.05) * 100}th percentile = {threshold:.3f}"
+        label=f"{int((1 - significance_level) * 100)}th percentile = {threshold:.3f}"
     )
 
     result = "SIGNIFICANT" if p_value <= significance_level else "NOT SIGNIFICANT"
 
     plt.title(f"Permutation test: {result} (p = {p_value:.4f})")
-    plt.xlabel("Best WRAcc under permutation")
+    plt.xlabel("Best quality under permutation")
     plt.ylabel("Frequency")
-    plt.legend()
+    plt.legend(loc="upper left")
     plt.tight_layout()
-    plt.show()
+    if output_file is not None:
+        plt.savefig(output_file, dpi=200, bbox_inches="tight")
+        plt.close()
+    else:
+        plt.show()
+
+    return p_value
