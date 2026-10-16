@@ -89,7 +89,7 @@ NETWORK_DATASETS = {
     "snowball": {
         "players": PLAYERS_SNOWBALL_TABLE,
         "edges": EDGES_SNOWBALL_CORE_TABLE,
-        "target": "target_growth_6m",
+        "target": "target_growth_6m_top20",
         "categorical_columns": ["title", "main_tc"],
         "columns_to_ignore": [
             "username", "rating", "n_games",
@@ -127,7 +127,7 @@ NETWORK_QUALITY_MEASURE = "mean"
 NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
 
 # Significance test (src/significance_test.py): permutation test on the best
-SCORE_TO_TEST = 305
+SCORE_TO_TEST = 0.38
 SIGNIFICANCE_N = 500
 SIGNIFICANCE_LEVEL = 0.05
 SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.png"
