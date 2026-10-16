@@ -88,7 +88,7 @@ NETWORK_DATASETS = {
     "snowball": {
         "players": PLAYERS_SNOWBALL_TABLE,
         "edges": EDGES_SNOWBALL_CORE_TABLE,
-        "target": "target_growth_3m_top20",
+        "target": "target_growth_3m",
         "categorical_columns": ["title", "main_tc"],
         "columns_to_ignore": [
             "username", "rating",
@@ -122,11 +122,11 @@ NETWORK_DATASETS = {
 NETWORK_DATASET = "snowball"
 NETWORK_TOP_GROUPS = 20
 # which quality measure to use (either ks/mean/wracc)
-NETWORK_QUALITY_MEASURE = "wracc"
+NETWORK_QUALITY_MEASURE = "mean"
 NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.csv"
 
 # Significance test (src/significance_test.py): permutation test on the best
-SCORE_TO_TEST = 0.35
+SCORE_TO_TEST = 246
 SIGNIFICANCE_N = 500
 SIGNIFICANCE_LEVEL = 0.05
 SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.png"
