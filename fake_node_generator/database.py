@@ -32,7 +32,9 @@ class Database:
 
     def __init__(self, configuration: Configuration) -> None:
         self.configuration = configuration
-        self.configuration.read_config_data()
+        # keep an already loaded configuration so overrides (e.g. set_planted_subgroups) survive
+        if not self.configuration.is_loaded():
+            self.configuration.read_config_data()
         self.planted_subgroups = []
         self.rng = np.random.default_rng(self.configuration.get_global_random_seed())
 

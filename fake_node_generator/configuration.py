@@ -22,9 +22,11 @@ class Configuration:
         self._global_random_seed: int | None = None
         self._number_of_games_in_group: int | None = None
         self._number_of_games_out_of_group: int | None = None
-        self._planted_subgroups: list[PlantedSubgroup] | None = None
+        self._planted_subgroups: list[PlantedSubgroup] = []
         self._min_rating: int | None = None
         self._max_rating: int | None = None
+        self._range_shift_strengths: list[float] | None = None
+        self._range_subgroup_sizes: list[int] | None = None
 
     def read_config_data(self) -> None:
         # read all of the configuration data from the config.json file and assign it to the class variables
@@ -64,9 +66,12 @@ class Configuration:
                 f"'min_rating' in {self.config_path} must not be greater than 'max_rating'"
             )
         self._groups = self._require_groups(data, "groups")
-        self._planted_subgroups = self._require_planted_subgroups(
-            data, "planted_subgroups"
+        self._range_shift_strengths, self._range_subgroup_sizes = (
+            self._require_network_range(data, "network_range")
         )
+
+    def is_loaded(self) -> bool:
+        return self._groups is not None
 
     def get_in_group_match_probability(self) -> float:
         if self._in_group_match_probability is None:
@@ -119,9 +124,21 @@ class Configuration:
         return self._number_of_games_out_of_group
 
     def get_planted_subgroups(self) -> list[PlantedSubgroup]:
-        if self._planted_subgroups is None:
-            self.read_config_data()
         return self._planted_subgroups
+
+    def set_planted_subgroups(self, planted_subgroups: list[PlantedSubgroup]) -> None:
+        # the subgroups to plant in one network of the range from 'network_range'
+        self._planted_subgroups = planted_subgroups
+
+    def get_range_shift_strengths(self) -> list[float]:
+        if self._range_shift_strengths is None:
+            self.read_config_data()
+        return self._range_shift_strengths
+
+    def get_range_subgroup_sizes(self) -> list[int]:
+        if self._range_subgroup_sizes is None:
+            self.read_config_data()
+        return self._range_subgroup_sizes
 
     def get_min_rating(self) -> int:
         if self._min_rating is None:
@@ -247,51 +264,45 @@ class Configuration:
 
         return groups
 
-    def _require_planted_subgroups(
+    def _require_network_range(
         self, data: dict, key: str
-    ) -> list[PlantedSubgroup]:
+    ) -> tuple[list[float], list[int]]:
         value = data.get(key)
-        if not isinstance(value, list):
-            raise ValueError(f"'{key}' in {self.config_path} must be a list")
+        where = f"'{key}' in {self.config_path}"
+        if not isinstance(value, dict):
+            raise ValueError(f"{where} must be an object")
 
-        group_ids = {group.id for group in self._groups}
-        planted_subgroups: list[PlantedSubgroup] = []
-
-        for index, entry in enumerate(value):
-            where = f"'{key}[{index}]' in {self.config_path}"
-            if not isinstance(entry, dict):
-                raise ValueError(f"{where} must be an object")
-
-            group_id = entry.get("group")
-            if isinstance(group_id, bool) or group_id not in group_ids:
-                raise ValueError(
-                    f"{where} must have a 'group' matching one of the group ids "
-                    f"{sorted(group_ids)}"
-                )
-
-            sigma = entry.get("sigma")
-            if isinstance(sigma, bool) or not isinstance(sigma, int) or sigma < 1:
-                raise ValueError(f"{where} must have a positive integer 'sigma'")
-
-            shift_strength = entry.get("shift_strength")
-            if (
-                isinstance(shift_strength, bool)
-                or not isinstance(shift_strength, (int, float))
-                or shift_strength < 0
-            ):
-                raise ValueError(
-                    f"{where} must have a non-negative numeric 'shift_strength'"
-                )
-
-            planted_subgroups.append(
-                PlantedSubgroup(
-                    group=group_id,
-                    sigma=sigma,
-                    shift_strength=float(shift_strength),
-                )
+        shift_strengths = value.get("shift_strengths")
+        if (
+            not isinstance(shift_strengths, list)
+            or not shift_strengths
+            or any(
+                isinstance(shift, bool)
+                or not isinstance(shift, (int, float))
+                or shift < 0
+                for shift in shift_strengths
+            )
+        ):
+            raise ValueError(
+                f"{where} must have a non-empty list of non-negative numbers "
+                f"'shift_strengths'"
             )
 
-        return planted_subgroups
+        subgroup_sizes = value.get("subgroup_sizes")
+        if (
+            not isinstance(subgroup_sizes, list)
+            or not subgroup_sizes
+            or any(
+                isinstance(size, bool) or not isinstance(size, int) or size < 1
+                for size in subgroup_sizes
+            )
+        ):
+            raise ValueError(
+                f"{where} must have a non-empty list of positive integers "
+                f"'subgroup_sizes'"
+            )
+
+        return [float(shift) for shift in shift_strengths], subgroup_sizes
 
     @staticmethod
     def _load_json(path: Path):

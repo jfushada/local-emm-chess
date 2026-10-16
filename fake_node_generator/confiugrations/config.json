@@ -18,7 +18,7 @@
             "id": 0,
             "mean": 1500,
             "std": 150,
-            "number_of_players": 20,
+            "number_of_players": 40,
             "target_base_line" : -20,
             "target_std_value": 80
         },
@@ -27,7 +27,7 @@
             "id": 1,
             "mean": 1700,
             "std": 150,
-            "number_of_players": 20,
+            "number_of_players": 40,
             "target_base_line" : 15,
             "target_std_value": 80
         },
@@ -36,7 +36,7 @@
             "id": 2,
             "mean": 2200,
             "std": 150,
-            "number_of_players": 20,
+            "number_of_players": 40,
             "target_base_line" : 25,
             "target_std_value": 80
         },
@@ -45,15 +45,13 @@
             "id": 3,
             "mean": 2800,
             "std": 150,
-            "number_of_players": 20,
+            "number_of_players": 40,
             "target_base_line" : 30,
             "target_std_value": 80
         }
     ],
-    "planted_subgroups": [
-        {"group": 0, "sigma": 3, "shift_strength": 0.5},
-        {"group": 1, "sigma": 5, "shift_strength": 1},
-        {"group": 2, "sigma": 8, "shift_strength": 1.5},
-        {"group": 3, "sigma": 10, "shift_strength": 2}
-    ]
+    "network_range": {
+        "shift_strengths": [0.5, 1, 2, 3],
+        "subgroup_sizes": [5, 10, 20]
+    }
 }
