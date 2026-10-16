@@ -130,36 +130,12 @@ def ranking(x: int, s: nx.Graph, lu: pd.DataFrame, target_name: str ='target', c
     return ranks
 
 
-def q_func(s: List[Tuple[Any, int]], g: List[Tuple[Any, int]], target: str) -> float:
-    """
-    Computes the WRAcc-based quality measure Q for a given subgroup.
-
-    Args:
-        s (List[Tuple[Any, int]]): The subgroup's (node, target) pairs.
-        g (List[Tuple[Any, int]]): The whole population's (node, target) pairs.
-        target (str): Not used in this function, included for consistency.
-
-    Returns:
-        float: The quality measure Q.
-    """
-    s_size = len(s)
-    g_size = len(g)
-    if s_size == 0 or g_size == 0:
-        return 0
-
-    cover = s_size / g_size
-    n_target_s = sum([x[1] for x in s])
-    n_target_g = sum([x[1] for x in g])
-
-    wr_acc = (cover ** 0.5) * ((n_target_s / s_size) - (n_target_g / g_size))
-    return abs(wr_acc)
-
-
 def discovery(ranks: List[Tuple[Any, Any]],
               g: nx.Graph,
               lu: pd.DataFrame,
               target_name: str,
-              ablation_mode: bool = False
+              ablation_mode: bool = False,
+              quality_measure = ks_quality
               ) -> Tuple[int, int, float, List[Tuple[Any, Any]]]:
     """
     Determines thresholds rho and sigma based on the Q measure.
@@ -188,7 +164,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         for i in range(5, len(ranks) + 1):
             temp_ranks.append(ranks[i - 1])
             # q = q_func(temp_ranks, g_list_target, target_name)
-            q = ks_quality([x[1] for x in temp_ranks], population_values)
+            q = quality_measure([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 rho = i
@@ -198,7 +174,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         for i in range(3, rho + 1):
             temp_ranks.append(ranks[i - 1])
             # q = q_func(temp_ranks, [x for x in ranks[0:rho]], target_name)
-            q = ks_quality([x[1] for x in temp_ranks], [x[1] for x in ranks[0:rho]])
+            q = quality_measure([x[1] for x in temp_ranks], [x[1] for x in ranks[0:rho]])
             if q >= best:
                 best = q
                 sigma = i
@@ -213,7 +189,7 @@ def discovery(ranks: List[Tuple[Any, Any]],
         for i in range(5, rho + 1):
             temp_ranks.append(ranks[i - 1])
             # q = q_func(temp_ranks, g_list_target, target_name)
-            q = ks_quality([x[1] for x in temp_ranks], population_values)
+            q = quality_measure([x[1] for x in temp_ranks], population_values)
             if q >= best:
                 best = q
                 sigma = i
@@ -226,7 +202,8 @@ def process_node(node: int,
                  target_name: str,
                  columns_to_ignore: List[str],
                  categorical_attributes: List[str],
-                 ablation_mode: bool = False
+                 ablation_mode: bool = False,
+                 quality_measure = ks_quality
                  ) -> Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
     """
     Processes a single node by computing its ranking and subgroup qualities.
@@ -242,7 +219,8 @@ def process_node(node: int,
             (node, rho, sigma, q, ranks)
     """
     ranks = ranking(node, g, lu, target_name, columns_to_ignore, categorical_attributes)
-    rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode)
+    rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode,
+                                     quality_measure=quality_measure)
     return node, rho, sigma, q, ranks
 
 
@@ -254,7 +232,8 @@ def find_groups(g: nx.Graph,
                 categorical_attributes: List[str],
                 ablation_mode: bool = False,
                 use_multiprocessing: bool = True,
-                show_progress: bool = True
+                show_progress: bool = True,
+                quality_measure = ks_quality
                 ) -> pd.DataFrame:
     """
     Finds subgroups in the graph, either in parallel (multiprocessing) or
@@ -275,7 +254,7 @@ def find_groups(g: nx.Graph,
     if use_multiprocessing:
         with ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode): node
+                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure): node
                 for node in g.nodes
             }
 
@@ -284,7 +263,7 @@ def find_groups(g: nx.Graph,
                 out_rows.append(node_result)
     else:
         for node in tqdm.tqdm(g.nodes, disable=not show_progress):
-            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode)
+            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure)
             out_rows.append(node_result)
 
     out = pd.DataFrame(out_rows, columns=['node', 'rho', 'sigma', 'q', 'ranks']).set_index('node')
@@ -306,7 +285,8 @@ def get_permutation_scores(
         target_name: str,
         columns_to_ignore: List[str] = [],
         categorical_attributes: List[str] = [],
-        n:int = 500):
+        n:int = 500,
+        quality_measure = ks_quality):
     """
         Runs the find_groups function for n times shuffling the target everytime
     Args:
@@ -332,7 +312,8 @@ def get_permutation_scores(
             target_name,
             columns_to_ignore,
             categorical_attributes,
-            show_progress = False)['q'].iloc[0]
+            show_progress = False,
+            quality_measure = quality_measure)['q'].iloc[0]
 
         scores.append(best_score)
 
@@ -346,7 +327,8 @@ def significance_test(g: nx.Graph,
                       categorical_attributes: List[str] = [],
                       n:int = 500,
                       significance_level = 0.05,
-                      output_file = None):
+                      output_file = None,
+                      quality_measure = ks_quality):
 
     """
         Runs the get_permutation_scores function and plots the results
@@ -361,7 +343,7 @@ def significance_test(g: nx.Graph,
         a list with the best scores of each iteration
     """
 
-    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n))
+    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n, quality_measure))
 
     p_value = (1 + np.sum(scores >= score_to_test)) / (len(scores) + 1)
     threshold = np.quantile(scores, 1 - significance_level)

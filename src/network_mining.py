@@ -9,12 +9,16 @@
 #   results/network_groups_<dataset>_<target>.csv   the top subgroups, one row per player (node)
 
 from src import config
+from src import quality_measures
 from src.plot_network import load_graph
 from algorithm.methods import find_groups
 
 # Which tables, target and column roles to use is chosen in src/config.py via
 # NETWORK_DATASET; everything below is read from that entry.
 DATASET = config.NETWORK_DATASETS[config.NETWORK_DATASET]
+
+# the quality measure used to score subgroups (chosen in src/config.py)
+QUALITY_MEASURE = quality_measures.get_quality_measure(config.NETWORK_QUALITY_MEASURE)
 
 # title and time control are the only categorical attributes; gower needs to
 # know, otherwise it treats the category indices as numbers.
@@ -56,14 +60,15 @@ def run(target_name=DATASET["target"], k=config.NETWORK_TOP_GROUPS):
         target_name,
         COLUMNS_TO_IGNORE,
         CATEGORICAL_COLUMNS,
+        quality_measure=QUALITY_MEASURE,
     )
 
 
 if __name__ == "__main__":
     result = run()
 
-    out_file = (config.ROOT / "results"
-                / f"network_groups_{config.NETWORK_DATASET}_{DATASET['target']}.csv")
-    out_file.parent.mkdir(exist_ok=True)
+    # location is set in src/config.py
+    out_file = config.NETWORK_OUTPUT_FILE
+    out_file.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(out_file)
     print(f"Saved {len(result)} subgroups to {out_file}")

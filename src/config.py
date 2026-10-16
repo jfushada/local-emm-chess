@@ -10,6 +10,7 @@ PROCESSED_DIR = DATA_DIR / "processed"
 GENERATED_DIR = DATA_DIR / "generated"
 RESULTS_DIR = ROOT / "results"
 SIGNIFICANCE_TEST_DIR = RESULTS_DIR / "significance_tests"
+MINED_GROUPS_DIR = RESULTS_DIR / "mined_groups"
 
 GAMES_FILE = RAW_DIR / "dataset.csv"
 PROFILES_FILE = RAW_DIR / "player_profiles.csv"
@@ -87,7 +88,7 @@ NETWORK_DATASETS = {
     "snowball": {
         "players": PLAYERS_SNOWBALL_TABLE,
         "edges": EDGES_SNOWBALL_CORE_TABLE,
-        "target": "target_growth_3m",
+        "target": "target_growth_3m_top20",
         "categorical_columns": ["title", "main_tc"],
         "columns_to_ignore": [
             "username", "rating",
@@ -118,12 +119,14 @@ NETWORK_DATASETS = {
     },
 }
 
-NETWORK_DATASET = "snowball"   # which NETWORK_DATASETS entry to mine
-NETWORK_TOP_GROUPS = 20         # number of top subgroups to return
+NETWORK_DATASET = "snowball"
+NETWORK_TOP_GROUPS = 20
+# which quality measure to use (either ks/mean/wracc)
+NETWORK_QUALITY_MEASURE = "wracc"
+NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.csv"
 
 # Significance test (src/significance_test.py): permutation test on the best
-# subgroup score of the active dataset (NETWORK_DATASET above).
-SCORE_TO_TEST = 1.55
-SIGNIFICANCE_N = 500                                  # number of permutations
+SCORE_TO_TEST = 0.35
+SIGNIFICANCE_N = 500
 SIGNIFICANCE_LEVEL = 0.05
-SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}.png"
+SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.png"
