@@ -12,11 +12,9 @@ from statsmodels.stats.multitest import multipletests
 
 
 TARGETS = [
-    "target_growth_games",
     "target_growth_1m",
     "target_growth_3m",
-    "target_growth_6m",
-]
+    "target_growth_6m",]
 
 # These columns identify players or contain target information,
 # so they must not be used to describe subgroups.
