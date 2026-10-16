@@ -12,6 +12,7 @@ RATING_HISTORY_FILE = RAW_DIR / "player_rating_history.csv"
 
  # one row per core player
 PLAYERS_TABLE = PROCESSED_DIR / "players.csv"  
+PLAYERS_SNOWBALL_TABLE = PROCESSED_DIR / "players_snowball.csv"
 
 # Standard time controls we keep (ultraBullet and variants are excluded for now).
 TIME_CONTROLS = ["bullet", "blitz", "rapid", "classical"]

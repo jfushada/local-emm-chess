@@ -46,7 +46,7 @@ def test_mine_subgroups_returns_results(monkeypatch):
     monkeypatch.setattr(
         tabular_mining,
         "load_players",
-        lambda: df.copy(),
+        lambda target="target_growth_3m": df.copy(),
     )
 
     result = tabular_mining.mine_subgroups(
@@ -71,7 +71,7 @@ def test_mine_subgroups_supports_ks(monkeypatch):
     monkeypatch.setattr(
         tabular_mining,
         "load_players",
-        lambda: df.copy(),
+        lambda target="target_growth_3m": df.copy(),
     )
 
     result = tabular_mining.mine_subgroups(
@@ -84,11 +84,12 @@ def test_mine_subgroups_supports_ks(monkeypatch):
     assert not result.empty
 
 
+
 def test_invalid_quality_raises_error(monkeypatch):
     monkeypatch.setattr(
         tabular_mining,
         "load_players",
-        lambda: pd.DataFrame({
+        lambda target="target_growth_3m": pd.DataFrame({
             "win_rate": [0.1, 0.2],
             "target_growth_3m": [10, 20],
         }),
@@ -112,3 +113,64 @@ def test_make_selectors_skips_conditions_matching_all_or_no_players():
     # A varying column should still produce candidate selectors.
     assert any(column == "share_rapid" for column, _, *_ in selectors)
 
+
+
+def test_permutation_test_returns_expected_results(monkeypatch):
+    df = pd.DataFrame({
+        "win_rate": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+        "target_growth_3m": [10, 20, 30, 40, 50, 60],
+    })
+
+    monkeypatch.setattr(
+        tabular_mining,
+        "load_players",
+        lambda target="target_growth_3m": df.copy(),
+    )
+
+    result = tabular_mining.permutation_test(
+        n_permutations=3,
+        min_size=1,
+        max_depth=1,
+    )
+
+    assert result["target"] == "target_growth_3m"
+    assert result["quality"] == "mean"
+    assert 0 <= result["p_value"] <= 1
+    assert len(result["null_scores"]) == 3
+    assert result["n_permutations"] == 3
+
+
+def test_permutation_test_is_reproducible(monkeypatch):
+    df = pd.DataFrame({
+        "win_rate": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+        "target_growth_3m": [10, 20, 30, 40, 50, 60],
+    })
+
+    monkeypatch.setattr(
+        tabular_mining,
+        "load_players",
+        lambda target="target_growth_3m": df.copy(),
+    )
+
+    first = tabular_mining.permutation_test(
+        n_permutations=3,
+        random_state=42,
+        min_size=1,
+        max_depth=1,
+    )
+
+    second = tabular_mining.permutation_test(
+        n_permutations=3,
+        random_state=42,
+        min_size=1,
+        max_depth=1,
+    )
+
+    assert first["observed_score"] == second["observed_score"]
+    assert first["p_value"] == second["p_value"]
+    assert first["null_scores"] == second["null_scores"]
+
+
+def test_permutation_test_rejects_invalid_count():
+    with pytest.raises(ValueError):
+        tabular_mining.permutation_test(n_permutations=0)
