@@ -19,6 +19,7 @@ RATING_HISTORY_FILE = RAW_DIR / "player_rating_history.csv"
 
  # one row per core player
 PLAYERS_TABLE = PROCESSED_DIR / "players.csv"  
+PLAYERS_SNOWBALL_TABLE = PROCESSED_DIR / "players_snowball.csv"
 
 # Standard time controls we keep (ultraBullet and variants are excluded for now).
 TIME_CONTROLS = ["bullet", "blitz", "rapid", "classical"]
@@ -123,10 +124,10 @@ NETWORK_DATASET = "snowball"
 NETWORK_TOP_GROUPS = 20
 # which quality measure to use (either ks/mean/wracc)
 NETWORK_QUALITY_MEASURE = "mean"
-NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.csv"
+NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
 
 # Significance test (src/significance_test.py): permutation test on the best
 SCORE_TO_TEST = 172
 SIGNIFICANCE_N = 500
 SIGNIFICANCE_LEVEL = 0.05
-SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]["target"]}_{NETWORK_QUALITY_MEASURE}.png"
+SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.png"
