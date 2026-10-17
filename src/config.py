@@ -11,6 +11,7 @@ GENERATED_DIR = DATA_DIR / "generated"
 RESULTS_DIR = ROOT / "results"
 SIGNIFICANCE_TEST_DIR = RESULTS_DIR / "significance_tests"
 MINED_GROUPS_DIR = RESULTS_DIR / "mined_groups"
+MINED_GENERATED_GROUPS_DIR = RESULTS_DIR / "mined_generated_groups"
 
 GAMES_FILE = RAW_DIR / "dataset.csv"
 PROFILES_FILE = RAW_DIR / "player_profiles.csv"
@@ -78,13 +79,20 @@ EDGES_SNOWBALL_TABLE = PROCESSED_DIR / "edges_snowball.csv"            # nodes =
 EDGES_SNOWBALL_CORE_TABLE = PROCESSED_DIR / "edges_snowball_core.csv"  # nodes = players_snowball.csv
 
 # generated data
-PLAYERS_GENERATED_TABLE = GENERATED_DIR / "players.csv"
-EDGES_GENERATED_TABLE = GENERATED_DIR / "edges.csv"
+PLAYERS_GENERATED_TABLE_OLD = GENERATED_DIR / "players.csv"
+EDGES_GENERATED_TABLE_OLD = GENERATED_DIR / "edges.csv"
+GENERATED_RANGE_DIR = ROOT / "fake_node_generator" / "result" / "network_range"
 
 # Local subgroup discovery on the player network (src/network_mining.py).
 # Each dataset bundles its two tables, its target and the role of its columns.
 # To mine a different dataset, change NETWORK_DATASET below; network_mining.py
 # reads everything else from the entry it points to.
+shift = 100
+size = 5
+
+PLAYERS_GENERATED_TABLE =  GENERATED_RANGE_DIR / f"shift_{shift}_size_{size}" / "players.csv"
+EDGES_GENERATED_TABLE = GENERATED_RANGE_DIR / f"shift_{shift}_size_{size}" / "edges.csv"
+
 NETWORK_DATASETS = {
     "snowball": {
         "players": PLAYERS_SNOWBALL_TABLE,
@@ -104,7 +112,7 @@ NETWORK_DATASETS = {
         "edges": EDGES_GENERATED_TABLE,
         "target": "target",
         "categorical_columns": ["title", "main_tc"],
-        "columns_to_ignore": ["id", "rating", "target", "group", "WKL_target_bin"],
+        "columns_to_ignore": ["id", "rating", "target", "group", "WKL_target_bin", "username"],
     },
     "all": {
         "players": PLAYERS_ALL_TABLE,
@@ -120,11 +128,12 @@ NETWORK_DATASETS = {
     },
 }
 
-NETWORK_DATASET = "snowball"
+NETWORK_DATASET = "generated"
 NETWORK_TOP_GROUPS = 20
 # which quality measure to use (either ks/mean/wracc)
 NETWORK_QUALITY_MEASURE = "mean"
-NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
+# NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
+NETWORK_OUTPUT_FILE = MINED_GENERATED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{shift}_{size}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
 
 # Significance test (src/significance_test.py): permutation test on the best
 SCORE_TO_TEST = 172
