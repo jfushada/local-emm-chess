@@ -61,6 +61,7 @@ def run(target_name=DATASET["target"], k=config.NETWORK_TOP_GROUPS):
         COLUMNS_TO_IGNORE,
         CATEGORICAL_COLUMNS,
         quality_measure=QUALITY_MEASURE,
+        min_rho=config.NETWORK_MIN_RHO,
     )
 
 

@@ -45,6 +45,7 @@ def run(score=config.SCORE_TO_TEST,
         significance_level=significance_level,
         output_file=output_file,
         quality_measure=QUALITY_MEASURE,
+        min_rho=config.NETWORK_MIN_RHO,
     )
 
 
