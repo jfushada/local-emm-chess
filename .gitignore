@@ -14,3 +14,6 @@ venv/
 
 # pycharm
 .idea/
+
+# generated synthetic networks (regenerate with: cd fake_node_generator && python main.py)
+fake_node_generator/result/
