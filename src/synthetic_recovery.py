@@ -17,11 +17,19 @@ import pandas as pd
 from src import config, quality_measures
 from algorithm.methods import find_groups
 
-MEASURES = ["mean", "ks"]
+# quality measure -> target it is run on. mean and KS use the numerical target;
+# wracc is the binary baseline (the original method), on the top-20% version
+# of the same target that the generator writes as WKL_target_bin
+MEASURES = {
+    "mean": "target",
+    "ks": "target",
+    "wracc": "WKL_target_bin",
+}
 TOP = 20  # results to look at (after removing overlaps)
 CATEGORICAL = ["title", "main_tc"]
 # rating is no leakage here (the synthetic target doesn't depend on it), and the
-# generator uses it to break ties when planting, so it is kept as an attribute
+# generator uses it to break ties when planting, so it is kept as an attribute.
+# both targets are ignored as attributes, whichever one is being mined
 IGNORE = ["id", "target", "group", "WKL_target_bin"]
 
 
@@ -45,10 +53,11 @@ def load(network_dir):
 # the top results as (q, sigma members, rho members), the same way network_mining
 # gets them: find_groups drops results that overlap > 75% with a better one, so
 # the top results aren't all copies of the same planted group
-def search(graph, players, measure, k):
+def search(graph, players, measure, target, k):
     qm = quality_measures.get_quality_measure(measure)
-    found = find_groups(graph, k, players, "target", IGNORE, CATEGORICAL,
-                        use_multiprocessing=False, show_progress=False, quality_measure=qm, min_rho=config.NETWORK_MIN_RHO)
+    found = find_groups(graph, k, players, target, IGNORE, CATEGORICAL,
+                        use_multiprocessing=False, show_progress=False, quality_measure=qm,
+                        min_rho=config.NETWORK_MIN_RHO)
     return [(row.q, row.subgroup, row.reference) for row in found.itertuples()]
 
 
@@ -57,8 +66,8 @@ def main():
     rows = []
     for net in networks.itertuples():
         graph, players, planted = load(config.GENERATED_RANGE_DIR / net.network)
-        for measure in MEASURES:
-            top = search(graph, players, measure, TOP)
+        for measure, target in MEASURES.items():
+            top = search(graph, players, measure, target, TOP)
             for group, members in planted.items():
                 rows.append({
                     "network": net.network,
@@ -73,7 +82,7 @@ def main():
             print(f"done {net.network} {measure}")
 
     out = pd.DataFrame(rows)
-    out_file = config.RESULTS_DIR / "synthetic_recovery.csv"
+    out_file = config.RESULTS_DIR / f"synthetic_recovery_min_rho_{config.NETWORK_MIN_RHO}.csv"
     out.to_csv(out_file, index=False)
     out["found"] = out["sigma_jaccard"] >= 0.9  # (almost) exactly recovered as sigma
 
@@ -84,7 +93,7 @@ def main():
                     rho_jaccard=("rho_jaccard", "mean"),
                     found=("found", "mean"))
                .round(2))
-    summary_file = config.RESULTS_DIR / "synthetic_recovery_summary.csv"
+    summary_file = config.RESULTS_DIR / f"synthetic_recovery_summary_min_rho_{config.NETWORK_MIN_RHO}.csv"
     summary.to_csv(summary_file)
     print(summary.to_string())
 
