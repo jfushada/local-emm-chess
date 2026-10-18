@@ -97,7 +97,7 @@ NETWORK_DATASETS = {
     "snowball": {
         "players": PLAYERS_SNOWBALL_TABLE,
         "edges": EDGES_SNOWBALL_CORE_TABLE,
-        "target": "target_growth_1m",
+        "target": "target_growth_3m_top20",
         "categorical_columns": ["title", "main_tc"],
         "columns_to_ignore": [
             "username", "rating", "n_games", "is_snowball",
@@ -128,21 +128,22 @@ NETWORK_DATASETS = {
     },
 }
 
-NETWORK_DATASET = "generated"
-NETWORK_TOP_GROUPS = 20
-# which quality measure to use (either ks/mean/wracc)
-NETWORK_QUALITY_MEASURE = "mean"
-# NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
-NETWORK_OUTPUT_FILE = MINED_GENERATED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{shift}_{size}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
-
-# Significance test (src/significance_test.py): permutation test on the best
-SCORE_TO_TEST = 172
-SIGNIFICANCE_N = 500
-SIGNIFICANCE_LEVEL = 0.05
-SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.png"
-
 # minimum size of the reference group (rho). The original method uses 5, but then
 # rho can end up being just the exceptional subgroup itself, and the subgroup can't
 # be found (see the synthetic experiments). 40 = twice the largest planted subgroup
 # (20). Set to 5 to get the original method.
 NETWORK_MIN_RHO = 40
+
+NETWORK_DATASET = "snowball"
+NETWORK_TOP_GROUPS = 20
+# which quality measure to use (either ks/mean/wracc)
+NETWORK_QUALITY_MEASURE = "wracc"
+# NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
+# NETWORK_OUTPUT_FILE = MINED_GENERATED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{shift}_{size}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.csv"
+NETWORK_OUTPUT_FILE = MINED_GROUPS_DIR / f"network_groups_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}_min_rho_{NETWORK_MIN_RHO}.csv"
+# Significance test (src/significance_test.py): permutation test on the best
+SCORE_TO_TEST = 0.21624157016324747
+SIGNIFICANCE_N = 500
+SIGNIFICANCE_LEVEL = 0.05
+# SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.png"
+SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}_min_rho_{NETWORK_MIN_RHO}.png"

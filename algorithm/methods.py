@@ -313,8 +313,13 @@ def get_permutation_scores(
     lu_copy = lu.copy()
     seed = np.random.default_rng(seed=37)
 
+    # only the players with a target are shuffled among each other, so the same
+    # players keep a missing target (they are skipped by ranking) in every run
+    has_target = lu_copy[target_name].notna().to_numpy()
+    target_values = lu_copy.loc[has_target, target_name].to_numpy()
+
     for _ in tqdm.tqdm(range(n)):
-        lu_copy[target_name] = seed.permutation(lu_copy[target_name].values)
+        lu_copy.loc[has_target, target_name] = seed.permutation(target_values)
 
         best_score = find_groups(
             g,
