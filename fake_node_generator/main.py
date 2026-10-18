@@ -1,12 +1,13 @@
 """Generate a range of networks, from obvious planted subgroups to hard ones.
 
 For every combination of shift strength (in target sd) and subgroup size from
-`network_range` in config.json, one network is generated with the same
-planted subgroup setting in every group. The graph, ratings and targets come
-from the same seeds in every run, so only the planted subgroups differ.
+`network_range` in config.json, N_SEEDS networks are generated with the same
+planted subgroup setting in every group. Seed i uses SBM_seed + i and
+global_random_seed + i, so each seed gives a different graph, ratings and
+targets; within one seed only the planted subgroups differ between settings.
 
-Each network is saved in result/network_range/shift_<shift>_size_<size>/ and
-result/network_range/networks.csv lists all of them.
+Each network is saved in result/network_range/shift_<shift>_size_<size>_seed_<i>/
+and result/network_range/networks.csv lists all of them.
 """
 
 import csv
@@ -19,6 +20,7 @@ from models.planted_subgroup import PlantedSubgroup
 from tools.graph_visualizer import visualize_graph
 
 RANGE_DIR = RESULT_DIR / "network_range"
+N_SEEDS = 5  # networks per (shift, size) setting
 
 
 def generate_network(
@@ -62,35 +64,41 @@ def main():
                         f"subgroup covers the whole group or spills into other groups"
                     )
 
-            configuration = Configuration()
-            configuration.read_config_data()
-            configuration.set_planted_subgroups(
-                [
-                    PlantedSubgroup(
-                        group=group.id,
-                        sigma=subgroup_size,
-                        shift_strength=shift_strength,
-                    )
-                    for group in groups
-                ]
-            )
+            for seed in range(N_SEEDS):
+                configuration = Configuration()
+                configuration.read_config_data()
+                configuration.set_seeds(
+                    base_configuration.get_sbm_seed() + seed,
+                    base_configuration.get_global_random_seed() + seed,
+                )
+                configuration.set_planted_subgroups(
+                    [
+                        PlantedSubgroup(
+                            group=group.id,
+                            sigma=subgroup_size,
+                            shift_strength=shift_strength,
+                        )
+                        for group in groups
+                    ]
+                )
 
-            name = f"shift_{shift_strength:g}_size_{subgroup_size}"
-            result_dir = RANGE_DIR / name
-            result_dir.mkdir(parents=True, exist_ok=True)
-            print(f"Generating {name}")
-            database = generate_network(configuration, result_dir, show=False)
+                name = f"shift_{shift_strength:g}_size_{subgroup_size}_seed_{seed}"
+                result_dir = RANGE_DIR / name
+                result_dir.mkdir(parents=True, exist_ok=True)
+                print(f"Generating {name}")
+                database = generate_network(configuration, result_dir, show=False)
 
-            rows.append(
-                [
-                    name,
-                    shift_strength,
-                    subgroup_size,
-                    len(database.planted_subgroups),
-                    sum(len(subgroup["members"]) for subgroup in database.planted_subgroups),
-                    database.graph.number_of_nodes(),
-                ]
-            )
+                rows.append(
+                    [
+                        name,
+                        shift_strength,
+                        subgroup_size,
+                        seed,
+                        len(database.planted_subgroups),
+                        sum(len(subgroup["members"]) for subgroup in database.planted_subgroups),
+                        database.graph.number_of_nodes(),
+                    ]
+                )
 
     with (RANGE_DIR / "networks.csv").open("w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file)
@@ -99,6 +107,7 @@ def main():
                 "network",
                 "shift_strength_sd",
                 "subgroup_size",
+                "seed",
                 "planted_subgroups",
                 "planted_players",
                 "players",

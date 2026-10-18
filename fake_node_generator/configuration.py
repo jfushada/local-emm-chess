@@ -113,6 +113,11 @@ class Configuration:
             self.read_config_data()
         return self._global_random_seed
 
+    def set_seeds(self, sbm_seed: int, global_random_seed: int) -> None:
+        # override the seeds from config.json, to generate several networks per setting
+        self._sbm_seed = sbm_seed
+        self._global_random_seed = global_random_seed
+
     def get_number_of_games_in_group(self) -> int:
         if self._number_of_games_in_group is None:
             self.read_config_data()

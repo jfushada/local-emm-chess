@@ -135,7 +135,8 @@ def discovery(ranks: List[Tuple[Any, Any]],
               lu: pd.DataFrame,
               target_name: str,
               ablation_mode: bool = False,
-              quality_measure = ks_quality
+              quality_measure = ks_quality,
+              min_rho: int = 5
               ) -> Tuple[int, int, float, List[Tuple[Any, Any]]]:
     """
     Determines thresholds rho and sigma based on the Q measure.
@@ -145,6 +146,12 @@ def discovery(ranks: List[Tuple[Any, Any]],
         g (nx.Graph): The whole graph.
         lu (pd.DataFrame): Lookup DataFrame.
         ablation_mode (bool): If True, adjusts the search for sigma.
+        min_rho (int): minimum size of the reference group (rho). The original
+            method uses 5. With a small minimum, rho can end up being just the
+            exceptional subgroup itself, and then no sigma inside it stands out.
+            About twice the largest subgroup you want to find works well.
+            If a node can reach fewer than min_rho others, it uses all of them
+            (at least 5).
 
     Returns:
         Tuple[int, int, float, List[Tuple[Any, Any]]]:
@@ -160,8 +167,9 @@ def discovery(ranks: List[Tuple[Any, Any]],
         sigma = 0
         best = 0
 
-        temp_ranks = [x for x in ranks[0:4]]
-        for i in range(5, len(ranks) + 1):
+        start = max(5, min(min_rho, len(ranks)))
+        temp_ranks = [x for x in ranks[0:start - 1]]
+        for i in range(start, len(ranks) + 1):
             temp_ranks.append(ranks[i - 1])
             # q = q_func(temp_ranks, g_list_target, target_name)
             q = quality_measure([x[1] for x in temp_ranks], population_values)
@@ -203,7 +211,8 @@ def process_node(node: int,
                  columns_to_ignore: List[str],
                  categorical_attributes: List[str],
                  ablation_mode: bool = False,
-                 quality_measure = ks_quality
+                 quality_measure = ks_quality,
+                 min_rho: int = 5
                  ) -> Tuple[int, int, int, float, List[Tuple[Any, Any]]]:
     """
     Processes a single node by computing its ranking and subgroup qualities.
@@ -220,7 +229,7 @@ def process_node(node: int,
     """
     ranks = ranking(node, g, lu, target_name, columns_to_ignore, categorical_attributes)
     rho, sigma, q, ranks = discovery(ranks, g, lu, target_name, ablation_mode=ablation_mode,
-                                     quality_measure=quality_measure)
+                                     quality_measure=quality_measure, min_rho=min_rho)
     return node, rho, sigma, q, ranks
 
 
@@ -233,7 +242,8 @@ def find_groups(g: nx.Graph,
                 ablation_mode: bool = False,
                 use_multiprocessing: bool = True,
                 show_progress: bool = True,
-                quality_measure = ks_quality
+                quality_measure = ks_quality,
+                min_rho: int = 5
                 ) -> pd.DataFrame:
     """
     Finds subgroups in the graph, either in parallel (multiprocessing) or
@@ -254,7 +264,7 @@ def find_groups(g: nx.Graph,
     if use_multiprocessing:
         with ProcessPoolExecutor() as executor:
             futures = {
-                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure): node
+                executor.submit(process_node, node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure, min_rho): node
                 for node in g.nodes
             }
 
@@ -263,7 +273,7 @@ def find_groups(g: nx.Graph,
                 out_rows.append(node_result)
     else:
         for node in tqdm.tqdm(g.nodes, disable=not show_progress):
-            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure)
+            node_result = process_node(node, g, lu, target_name, columns_to_ignore, categorical_attributes, ablation_mode, quality_measure, min_rho)
             out_rows.append(node_result)
 
     out = pd.DataFrame(out_rows, columns=['node', 'rho', 'sigma', 'q', 'ranks']).set_index('node')
@@ -286,7 +296,8 @@ def get_permutation_scores(
         columns_to_ignore: List[str] = [],
         categorical_attributes: List[str] = [],
         n:int = 500,
-        quality_measure = ks_quality):
+        quality_measure = ks_quality,
+        min_rho: int = 5):
     """
         Runs the find_groups function for n times shuffling the target everytime
     Args:
@@ -313,7 +324,8 @@ def get_permutation_scores(
             columns_to_ignore,
             categorical_attributes,
             show_progress = False,
-            quality_measure = quality_measure)['q'].iloc[0]
+            quality_measure = quality_measure,
+            min_rho = min_rho)['q'].iloc[0]
 
         scores.append(best_score)
 
@@ -328,7 +340,8 @@ def significance_test(g: nx.Graph,
                       n:int = 500,
                       significance_level = 0.05,
                       output_file = None,
-                      quality_measure = ks_quality):
+                      quality_measure = ks_quality,
+                      min_rho: int = 5):
 
     """
         Runs the get_permutation_scores function and plots the results
@@ -343,7 +356,7 @@ def significance_test(g: nx.Graph,
         a list with the best scores of each iteration
     """
 
-    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n, quality_measure))
+    scores = np.array(get_permutation_scores(g, lu, target_name, columns_to_ignore, categorical_attributes, n, quality_measure, min_rho))
 
     p_value = (1 + np.sum(scores >= score_to_test)) / (len(scores) + 1)
     threshold = np.quantile(scores, 1 - significance_level)

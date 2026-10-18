@@ -140,3 +140,9 @@ SCORE_TO_TEST = 172
 SIGNIFICANCE_N = 500
 SIGNIFICANCE_LEVEL = 0.05
 SIGNIFICANCE_PLOT_FILE = SIGNIFICANCE_TEST_DIR / f"significance_test_{NETWORK_DATASET}_{NETWORK_DATASETS[NETWORK_DATASET]['target']}_{NETWORK_QUALITY_MEASURE}.png"
+
+# minimum size of the reference group (rho). The original method uses 5, but then
+# rho can end up being just the exceptional subgroup itself, and the subgroup can't
+# be found (see the synthetic experiments). 40 = twice the largest planted subgroup
+# (20). Set to 5 to get the original method.
+NETWORK_MIN_RHO = 40
