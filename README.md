@@ -21,7 +21,16 @@ python -m src.features          # build players.csv, players_all.csv and players
 python -m src.edges             # build edges_*.csv (run after features)
 python -m src.tabular_mining    # subgroup discovery on the player table
 python -m src.network_mining    # local subgroup discovery on the player network
+python -m src.significance_test # permutation test for the best subgroup (slow, see below)
+python -m src.plot_network      # network figures in results/
 python -m pytest                # run the tests
+```
+
+Synthetic experiments (see [Synthetic networks](#synthetic-networks)):
+
+```bash
+cd fake_node_generator && python main.py && cd ..   # generate the synthetic networks
+python -m src.synthetic_recovery                     # how well the planted subgroups are found
 ```
 
 ## Structure
@@ -31,13 +40,23 @@ src/
   config.py            shared paths and settings (filters, growth windows)
   features.py          builds the player tables (attributes + targets)
   edges.py             builds the edge lists of the player network
-  quality_measures.py  quality measures for numerical targets (mean-based, KS)
+  quality_measures.py  quality measures: mean-based, KS (numerical), WRAcc (binary)
   tabular_mining.py    subgroup discovery on the player table, no network
+  network_mining.py    local subgroup discovery on the player network
+  significance_test.py permutation test for the best network subgroup
+  plot_network.py      network figures
+  synthetic_recovery.py      runs the search on the synthetic networks and scores
+                             it against the planted subgroups
+  check_planted_centre.py    diagnostic: the search started at each planted centre
 algorithm/
   methods.py           network-based local subgroup discovery (adapted from LSD-ATNG)
+fake_node_generator/   generator for synthetic networks with planted subgroups
+  confiugrations/config.json   generator settings (communities, targets, grid)
+  result/              generated networks (not in git; run main.py)
 data/
   raw/                 crawled Lichess data
   processed/           generated files (players*.csv, edges_*.csv)
+  generated/           first synthetic network (80 players), kept for reference
 tests/                 tests for quality measures and tabular mining
 results/               figures and tables for the paper
 ```
@@ -163,6 +182,10 @@ Things to know about the network:
 
 ## Snowball step: `players_snowball.csv`, `edges_snowball*.csv`
 
+In the paper the 200 crawled opponents are called **extension players** ("snowball"
+in the code and file names). The core crawl itself is also snowball sampling, so the
+paper avoids the word for this step.
+
 To get edges between opponents, 200 opponents were crawled as well: the 200 with the
 most games against our core players. For each, their 60 most recent rated games in
 standard time controls up to the reference date, plus profile and rating history
@@ -187,6 +210,64 @@ file exists; the files above don't change.
   connected component (`edges_all.csv` has two: 4,274 + 826).
 - **`edges_snowball_core.csv`** still splits into two groups (182 + 164), roughly
   blitz vs bullet.
+
+## Network mining settings
+
+All in `src/config.py`:
+
+| Setting                   | Meaning                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `NETWORK_DATASET`         | which network to mine: `snowball` (346 players), `generated`, `all`                                          |
+| `NETWORK_DATASETS`        | per dataset: player and edge files, target, categorical / ignored columns                                    |
+| `NETWORK_QUALITY_MEASURE` | `mean`, `ks` (numerical target) or `wracc` (binary `_top20` target)                                          |
+| `NETWORK_MIN_RHO`         | minimum size of the reference group ρ (40; 5 = original method, see below)                                   |
+| `NETWORK_TOP_GROUPS`      | number of subgroups to keep after removing overlapping ones                                                  |
+| `SCORE_TO_TEST`           | best q to test in `significance_test.py`: copy the exact value from the `network_mining` output, not rounded |
+| `SIGNIFICANCE_N`          | number of permutations (500; each one reruns the whole search)                                               |
+
+**Why `NETWORK_MIN_RHO`.** For each prototype, the search first picks ρ as the group
+that differs most from the whole network, then σ inside ρ as the group that differs
+most from ρ. With the original minimum of 5, ρ shrinks onto an exceptional group
+itself (ρ = the 10 planted players when 10 are planted), and then no σ inside it
+stands out. The original LSD-ATNG code does the same. With ρ ≥ 40 (twice the largest
+planted subgroup) the planted subgroups are found; see below. The Lichess components
+have 182 and 164 players, so every player can reach at least 40 others.
+
+## Synthetic networks
+
+Generated by `fake_node_generator/main.py` with the settings in
+`fake_node_generator/confiugrations/config.json`:
+
+- **Network:** stochastic block model with 4 communities of 40 players
+  (in-community edges more likely, more games per in-community edge).
+- **Target:** normal per community (baselines -20, 15, 25, 30; sd 80).
+- **Planted subgroups:** one per community, the `size` players nearest to a random
+  centre (ranked like the search: shortest path, ties by Gower), with the target shifted by `shift` × sd.
+- **Grid:** shift 0.5, 1, 2, 3 sd × size 5, 10, 20, with `N_SEEDS = 5` networks per
+  setting (seed i = config seeds + i). Each network is saved in
+  `result/network_range/shift_<shift>_size_<size>_seed_<i>/`, listed in `networks.csv`.
+- **Binary target** `WKL_target_bin`: top 20% of the target, for the WRAcc baseline.
+
+`src/synthetic_recovery.py` runs the search with mean, KS (on `target`) and WRAcc
+(on `WKL_target_bin`) and, for each planted group, takes the best Jaccard overlap
+with a σ among the top 20 results.
+
+| File (in `results/`)                         | Contents                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------- |
+| `synthetic_recovery_min_rho_<n>.csv`         | one row per network × measure × planted group                             |
+| `synthetic_recovery_summary_min_rho_<n>.csv` | averaged per shift × size × measure; `found` = share with σ overlap ≥ 0.9 |
+
+Main results (σ overlap, averaged over sizes and seeds):
+
+| Shift  | min ρ = 5 (mean, KS) | min ρ = 40: mean | KS   | WRAcc (binary) |
+| ------ | -------------------- | ---------------- | ---- | -------------- |
+| 0.5 sd | ~0.26                | 0.33             | 0.31 | 0.26           |
+| 1 sd   | ~0.27                | 0.54             | 0.46 | 0.45           |
+| 2 sd   | ~0.24                | 0.86             | 0.82 | 0.70           |
+| 3 sd   | ~0.22                | 0.93             | 0.93 | 0.78           |
+
+The binary measure falls behind mainly for size 20: 4 × 20 = 80 shifted players
+against 32 marked as top 20%, so most planted players get a 0.
 
 ## Data notes
 
