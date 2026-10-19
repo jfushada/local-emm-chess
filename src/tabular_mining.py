@@ -11,11 +11,7 @@ from src.quality_measures import mean_quality, ks_quality
 from statsmodels.stats.multitest import multipletests
 
 
-TARGETS = [
-    "target_growth_1m",
-    "target_growth_3m",
-    "target_growth_6m",]
-
+TARGETS = ["target_growth_3m",]
 # These columns identify players or contain target information,
 # so they must not be used to describe subgroups.
 EXCLUDED_COLUMNS = {
