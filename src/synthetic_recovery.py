@@ -2,13 +2,18 @@
 
 # Run from the repo root, after generating the networks
 # (cd fake_node_generator && python main.py):
-#     python -m src.synthetic_recovery
-# Output: results/synthetic_recovery.csv, one row per network x quality measure x planted group
+#     python -m src.synthetic_recovery            # run the search on all networks
+#     python -m src.synthetic_recovery --summary  # only rebuild the summary from the saved results
+# Output (n = config.NETWORK_MIN_RHO):
+#   results/synthetic_recovery_min_rho_<n>.csv          one row per network x measure x planted group
+#   results/synthetic_recovery_summary_min_rho_<n>.csv  averaged per shift x size x measure
 #
 # For every prototype the search returns a reference group (rho) and a subgroup
 # (sigma). For each planted group we take the best Jaccard overlap with any sigma
 # (and any rho) among the top results. sigma is what should match the planted
 # group; rho is reported to check it isn't just the planted group itself.
+# Overlap is reported as Jaccard and as Dice similarity (Dice = 2J / (1 + J));
+# a planted group counts as found if the Dice similarity is at least FOUND_DICE.
 # The minimum rho size comes from config.NETWORK_MIN_RHO (5 = original method).
 
 import networkx as nx
@@ -26,6 +31,7 @@ MEASURES = {
     "wracc": "WKL_target_bin",
 }
 TOP = 20  # results to look at (after removing overlaps)
+FOUND_DICE = 0.75  # Dice similarity from which a planted group counts as found
 CATEGORICAL = ["title", "main_tc"]
 # rating is no leakage here (the synthetic target doesn't depend on it), and the
 # generator uses it to break ties when planting, so it is kept as an attribute.
@@ -36,6 +42,11 @@ IGNORE = ["id", "target", "group", "WKL_target_bin"]
 def jaccard(a, b):
     a, b = set(a), set(b)
     return len(a & b) / len(a | b)
+
+
+# Dice similarity from the Jaccard similarity of the same two sets
+def dice_from_jaccard(j):
+    return 2 * j / (1 + j)
 
 
 def load(network_dir):
@@ -82,15 +93,29 @@ def main():
             print(f"done {net.network} {measure}")
 
     out = pd.DataFrame(rows)
-    out_file = config.RESULTS_DIR / f"synthetic_recovery_min_rho_{config.NETWORK_MIN_RHO}.csv"
-    out.to_csv(out_file, index=False)
-    out["found"] = out["sigma_jaccard"] >= 0.9  # (almost) exactly recovered as sigma
+    out.to_csv(results_file(), index=False)
+    print(f"Saved {results_file()}")
+    summarise(out)
 
-    # one row per setting: averaged over the seeds and the planted groups
+
+def results_file():
+    return config.RESULTS_DIR / f"synthetic_recovery_min_rho_{config.NETWORK_MIN_RHO}.csv"
+
+
+# one row per setting (shift x size x measure), averaged over the seeds and the
+# planted groups. Works on the saved results, so the metrics can be changed
+# without rerunning the search
+def summarise(out):
+    out = out.copy()
+    out["sigma_dice"] = dice_from_jaccard(out["sigma_jaccard"])
+    out["rho_dice"] = dice_from_jaccard(out["rho_jaccard"])
+    out["found"] = out["sigma_dice"] >= FOUND_DICE
+
     summary = (out.groupby(["shift_sd", "size", "measure"])
-               .agg(sigma_jaccard=("sigma_jaccard", "mean"),
-                    sigma_jaccard_sd=("sigma_jaccard", "std"),
-                    rho_jaccard=("rho_jaccard", "mean"),
+               .agg(sigma_dice=("sigma_dice", "mean"),
+                    sigma_dice_sd=("sigma_dice", "std"),
+                    rho_dice=("rho_dice", "mean"),
+                    sigma_jaccard=("sigma_jaccard", "mean"),
                     found=("found", "mean"))
                .round(2))
     summary_file = config.RESULTS_DIR / f"synthetic_recovery_summary_min_rho_{config.NETWORK_MIN_RHO}.csv"
@@ -98,9 +123,13 @@ def main():
     print(summary.to_string())
 
     # the same per planted group (to see which communities get found)
-    print(out.groupby(["group", "measure"])[["sigma_jaccard", "found"]].mean().round(2).to_string())
-    print(f"Saved {out_file} and {summary_file}")
+    print(out.groupby(["group", "measure"])[["sigma_dice", "found"]].mean().round(2).to_string())
+    print(f"Saved {summary_file}")
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if "--summary" in sys.argv:
+        summarise(pd.read_csv(results_file()))
+    else:
+        main()
