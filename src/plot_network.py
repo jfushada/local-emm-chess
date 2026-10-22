@@ -2,10 +2,10 @@
 
 # Run from the repo root, after src.edges:  python -m src.plot_network
 # Output (in results/):
-#   network_core.png           players.csv + edges_core.csv
-#   network_all.png            players_all.csv + edges_all.csv
-#   network_snowball_core.png  players_snowball.csv + edges_snowball_core.csv  (if built)
-#   network_snowball.png       players_all.csv + edges_snowball.csv           (if built)
+#   network_core.pdf           players.csv + edges_core.csv
+#   network_all.pdf            players_all.csv + edges_all.csv
+#   network_snowball_core.pdf  players_snowball.csv + edges_snowball_core.csv  (if built)
+#   network_snowball.pdf       players_all.csv + edges_snowball.csv           (if built)
 #
 # Core players are blue, other players (opponents / snowball players) orange.
 # Node size grows with the number of connections, and thicker lines mean more
@@ -120,6 +120,8 @@ def plot_network(graph: nx.Graph, players: pd.DataFrame, title: str, out_file,
     ax.axis("off")
     fig.tight_layout(pad=0.2)
     fig.savefig(out_file, dpi=300, facecolor=BACKGROUND)
+
+
     plt.close(fig)
     print(f"Saved {out_file}")
 
@@ -131,23 +133,23 @@ if __name__ == "__main__":
     graph, players = load_graph(config.PLAYERS_TABLE, config.EDGES_CORE_TABLE)
     plot_network(graph, players,
                  f"Core players: {graph.number_of_nodes()} players, {graph.number_of_edges()} edges",
-                 results / "network_core.png", label_top=5)
+                 results / "network_core.pdf", label_top=5)
 
     graph, players = load_graph(config.PLAYERS_ALL_TABLE, config.EDGES_ALL_TABLE)
     plot_network(graph, players,
                  f"All players: {graph.number_of_nodes()} players, {graph.number_of_edges()} edges",
-                 results / "network_all.png")
+                 results / "network_all.pdf")
 
     if config.EDGES_SNOWBALL_CORE_TABLE.exists():
         graph, players = load_graph(config.PLAYERS_SNOWBALL_TABLE, config.EDGES_SNOWBALL_CORE_TABLE)
         plot_network(graph, players,
                      f"Core + extension players: {graph.number_of_nodes()} players, "
                      f"{graph.number_of_edges()} edges",
-                     results / "network_snowball_core.png", other_label="extension player")
+                     results / "network_snowball_core.pdf", other_label="extension player")
 
     # the same network at print size for the paper (one column of the ACM layout)
     if config.EDGES_SNOWBALL_CORE_TABLE.exists():
-        plot_network(graph, players, "", results / "network_snowball_core_paper.png",
+        plot_network(graph, players, "", results / "network_snowball_core_paper.pdf",
                      other_label="extension player", width=3.4, arrangement="diagonal")
 
     if config.EDGES_SNOWBALL_TABLE.exists():
@@ -155,4 +157,4 @@ if __name__ == "__main__":
         plot_network(graph, players,
                      f"All players, with snowball games: {graph.number_of_nodes()} players, "
                      f"{graph.number_of_edges()} edges",
-                     results / "network_snowball.png")
+                     results / "network_snowball.pdf")

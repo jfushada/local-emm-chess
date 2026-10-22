@@ -74,7 +74,7 @@ def main():
     fig.tight_layout(pad=0.3, rect=(0, 0.04, 1, 0.8))
     fig.subplots_adjust(wspace=0.12)
 
-    out_file = config.RESULTS_DIR / "synthetic_recovery.png"
+    out_file = config.RESULTS_DIR / "synthetic_recovery.pdf"
     fig.savefig(out_file, dpi=300, facecolor="white")
     print(f"Saved {out_file}")
 
