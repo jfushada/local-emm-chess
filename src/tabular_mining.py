@@ -327,6 +327,7 @@ def permutation_test_all_targets(
 
     results_df = pd.DataFrame(results)
 
+    # Holm-adjusted p-values are kept for reference only; the paper reports raw p-values
     results_df["holm_adjusted_p_value"] = multipletests(
         results_df["p_value"],
         method="holm",
